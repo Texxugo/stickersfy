@@ -7,6 +7,7 @@ import { Navbar } from "@/components/navbar";
 import { StickerVariantPanel } from "@/components/sticker-variant-panel";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { getAccessDecision } from "@/lib/access-control";
 import { getStickerBySlug } from "@/lib/sticker-data";
 
 export default async function StickerDetailPage({
@@ -16,6 +17,8 @@ export default async function StickerDetailPage({
 }) {
   const session = await auth();
   if (!session?.user?.email) redirect("/login");
+  const access = await getAccessDecision(session.user.email);
+  if (!access.allowed) redirect("/no-access");
 
   const { slug } = await params;
   const sticker = await getStickerBySlug(slug);

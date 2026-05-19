@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { isAdminEmail } from "@/lib/admin-emails";
 import { Navbar } from "@/components/navbar";
 import { AdminCreateStickerForm } from "@/components/admin-create-sticker-form";
 import { Badge } from "@/components/ui/badge";
@@ -556,8 +557,10 @@ async function requireAdminSession() {
   if (!session?.user?.email) redirect("/login");
 
   const email = session.user.email.toLowerCase();
-  const configuredAdmin = process.env.ADMIN_EMAIL?.toLowerCase();
-  if (configuredAdmin && email !== configuredAdmin) {
+  const anyAdminConfigured = Boolean(
+    (process.env.ADMIN_EMAIL ?? "").trim() || (process.env.ADMIN_EMAILS ?? "").trim()
+  );
+  if (anyAdminConfigured && !isAdminEmail(email)) {
     redirect("/gallery");
   }
 

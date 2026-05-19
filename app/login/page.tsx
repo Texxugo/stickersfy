@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { auth, signIn } from "@/auth";
+import { getAccessDecision } from "@/lib/access-control";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoginForm } from "@/components/login-form";
 
@@ -10,13 +11,18 @@ export default async function LoginPage({
   searchParams?: Promise<{ error?: string }>;
 }) {
   const session = await auth();
-  if (session?.user) redirect("/gallery");
+  if (session?.user?.email) {
+    const decision = await getAccessDecision(session.user.email);
+    redirect(decision.allowed ? "/gallery" : "/no-access");
+  }
 
   const params = await searchParams;
   const authError =
     params?.error === "Configuration"
-      ? "Configuração de autenticação pendente. Defina as variáveis de ambiente para envio do link mágico."
-      : undefined;
+      ? "Configuracao de autenticacao pendente. Defina as variaveis de ambiente para envio do link magico."
+      : params?.error === "AccessDenied"
+        ? "Seu e-mail ainda nao possui acesso ativo. Finalize a compra na Kiwify para entrar."
+        : undefined;
 
   async function sendMagicLink(formData: FormData) {
     "use server";
@@ -39,13 +45,13 @@ export default async function LoginPage({
           </p>
           <CardTitle>Acesso do assinante</CardTitle>
           <CardDescription>
-            Use o mesmo e-mail da compra na Kiwify para receber seu link mágico.
+            Use o mesmo e-mail da compra na Kiwify para receber seu link magico.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <LoginForm action={sendMagicLink} errorMessage={authError} />
           <p className="text-xs text-muted">
-            Link válido por 30 minutos e de uso único.
+            Link valido por 30 minutos e de uso unico.
           </p>
         </CardContent>
       </Card>

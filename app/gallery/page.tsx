@@ -8,6 +8,7 @@ import { StickerCard } from "@/components/sticker-card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { getAccessDecision } from "@/lib/access-control";
 import { getCategories, getPublishedStickers } from "@/lib/sticker-data";
 
 export default async function GalleryPage({
@@ -17,6 +18,8 @@ export default async function GalleryPage({
 }) {
   const session = await auth();
   if (!session?.user?.email) redirect("/login");
+  const access = await getAccessDecision(session.user.email);
+  if (!access.allowed) redirect("/no-access");
 
   const params = await searchParams;
   const q = params.q?.trim() ?? "";

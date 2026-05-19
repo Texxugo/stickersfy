@@ -19,6 +19,27 @@ model User {
   sessions      Session[]
 }
 
+enum AccessStatus {
+  ACTIVE
+  GRACE
+  BLOCKED
+}
+
+enum BillingStatus {
+  UNKNOWN
+  APPROVED
+  PAYMENT_FAILED
+  CANCELED
+  REFUNDED
+  CHARGEBACK
+}
+
+enum WebhookProcessingStatus {
+  PROCESSED
+  IGNORED
+  FAILED
+}
+
 model Account {
   userId            String
   type              String
@@ -91,4 +112,34 @@ model StickerVariant {
   sticker    Sticker  @relation(fields: [stickerId], references: [id], onDelete: Cascade)
 
   @@index([stickerId, sortOrder])
+}
+
+model CustomerAccess {
+  id                   String        @id @default(cuid())
+  email                String        @unique
+  accessStatus         AccessStatus  @default(BLOCKED)
+  billingStatus        BillingStatus @default(UNKNOWN)
+  graceUntil           DateTime?
+  kiwifyCustomerId     String?
+  kiwifyProductId      String?
+  kiwifySubscriptionId String?
+  lastEventType        String?
+  lastEventAt          DateTime?
+  lastApprovedAt       DateTime?
+  lastPaymentFailedAt  DateTime?
+  lastBlockedAt        DateTime?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+}
+
+model KiwifyWebhookDelivery {
+  id               String                  @id @default(cuid())
+  dedupeKey        String                  @unique
+  eventType        String
+  email            String?
+  payload          Json
+  processingStatus WebhookProcessingStatus @default(PROCESSED)
+  errorMessage     String?
+  receivedAt       DateTime                @default(now())
+  processedAt      DateTime?
 }

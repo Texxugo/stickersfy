@@ -5,27 +5,29 @@ MVP mobile-first para plataforma B2C de stickers transparentes.
 ## Stack
 
 - Next.js + React + TypeScript
-- Tailwind CSS + componentes no padrão shadcn/ui
-- NextAuth/Auth.js (link mágico com Resend)
+- Tailwind CSS + componentes no padrao shadcn/ui
+- NextAuth/Auth.js (link magico com Resend)
 - Prisma + PostgreSQL
 
 ## Fluxos implementados
 
-- `Login` com e-mail da compra (link mágico)
+- `Login` com e-mail da compra (link magico)
 - `Galeria` com busca textual e categorias iniciais
 - `Detalhe do sticker` com `Copiar Sticker` e `Baixar PNG`
 - Suporte a cadastro de sticker em `PNG` ou `SVG` (SVG convertido para PNG no copiar/baixar)
 - `Painel Admin` para publicar/despublicar stickers
 - `Painel Admin` para excluir stickers e gerenciar categorias (criar/editar/excluir)
 - `Painel Admin` para adicionar/remover variantes de cor por sticker
-- Fallback automático para download quando cópia de imagem não for suportada
+- Fallback automatico para download quando copia de imagem nao for suportada
+- Acesso condicionado a compra aprovada na Kiwify (webhook + status no banco)
 
-## Execução local
+## Execucao local
 
-1. Instale dependências:
+1. Instale dependencias:
    - `npm install`
-2. Configure variáveis:
+2. Configure variaveis:
    - copie `.env.example` para `.env.local`
+   - para admins: use `ADMIN_EMAIL` (1) ou `ADMIN_EMAILS` (lista separada por virgula)
 3. Gere cliente Prisma:
    - `npm run prisma:generate`
 4. Aplique migration inicial:
@@ -39,8 +41,18 @@ MVP mobile-first para plataforma B2C de stickers transparentes.
 
 ## Estrutura principal
 
-- `app/login/page.tsx` login por link mágico
+- `app/login/page.tsx` login por link magico
 - `app/gallery/page.tsx` galeria com busca/categorias
-- `app/gallery/[slug]/page.tsx` detalhe com ações copiar/baixar
-- `app/admin/page.tsx` painel admin de catálogo
-- `prisma/schema.prisma` modelos auth + domínio de stickers
+- `app/gallery/[slug]/page.tsx` detalhe com acoes copiar/baixar
+- `app/admin/page.tsx` painel admin de catalogo
+- `prisma/schema.prisma` modelos auth + dominio de stickers
+
+## Kiwify (acesso pago)
+
+- Endpoint webhook: `POST /api/webhooks/kiwify?token=SEU_TOKEN`
+- Endpoint simulacao: `POST /api/webhooks/kiwify/simulate?key=SUA_CHAVE`
+
+Eventos processados:
+- `approved` / `paid`: ativa acesso
+- `payment_failed` / `declined` / `cancelled`: coloca em carencia de 7 dias
+- `chargeback` / `refund`: bloqueia acesso imediatamente
