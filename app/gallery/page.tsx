@@ -45,31 +45,31 @@ export default async function GalleryPage({
 
           <form className="grid gap-2 sm:grid-cols-[1fr_auto]">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-amber-500" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#c87f7f]" />
               <Input
                 name="q"
                 defaultValue={q}
-                className="h-12 border-amber-300 pl-10 text-base placeholder:text-slate-500 focus-visible:ring-amber-400"
+                className="h-12 border-[#f2c8c8] pl-10 text-base placeholder:text-slate-500 focus-visible:ring-[#f2c8c8]"
                 placeholder="Busque por frase ou titulo"
               />
             </div>
             <Button
               type="submit"
               size="lg"
-              className="bg-amber-400 text-amber-950 hover:bg-amber-500 focus-visible:ring-amber-400"
+              className="bg-[#f2c8c8] text-[#5f3535] hover:bg-[#e8b4b4] focus-visible:ring-[#f2c8c8]"
             >
               Buscar
             </Button>
           </form>
 
-          <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-2">
+          <div className="rounded-xl border border-[#f2c8c8] bg-[#fdf5f5] p-2">
             <div className="flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible">
               <Link href="/gallery" className="shrink-0">
                 <Badge
                   className={`px-4 py-1.5 text-sm ${
                     !category
-                      ? "border-amber-400 bg-amber-300 text-amber-950"
-                      : "border-amber-200 bg-white/90 text-slate-700 hover:bg-amber-50"
+                      ? "border-[#f2c8c8] bg-[#f2c8c8] text-[#5f3535]"
+                      : "border-[#f2c8c8] bg-white/90 text-slate-700 hover:bg-[#fdf1f1]"
                   }`}
                 >
                   Todas
@@ -84,8 +84,8 @@ export default async function GalleryPage({
                   <Badge
                     className={`px-4 py-1.5 text-sm ${
                       category === item
-                        ? "border-amber-400 bg-amber-300 text-amber-950"
-                        : "border-amber-200 bg-white/90 text-slate-700 hover:bg-amber-50"
+                        ? "border-[#f2c8c8] bg-[#f2c8c8] text-[#5f3535]"
+                        : "border-[#f2c8c8] bg-white/90 text-slate-700 hover:bg-[#fdf1f1]"
                     }`}
                   >
                     {item}

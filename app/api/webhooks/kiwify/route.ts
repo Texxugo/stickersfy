@@ -36,7 +36,8 @@ export async function POST(request: NextRequest) {
       duplicated: result.duplicated,
       eventType: result.parsed.eventType,
       action: result.parsed.action,
-      email: result.parsed.email
+      email: result.parsed.email,
+      ignoredReason: result.ignoredReason ?? undefined
     });
   } catch (error) {
     return NextResponse.json(
@@ -50,10 +51,23 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
+  const tokenConfigured = Boolean(process.env.KIWIFY_WEBHOOK_TOKEN?.trim());
+  const simulationConfigured = Boolean(process.env.KIWIFY_SIMULATION_KEY?.trim());
+  const allowedProductIds =
+    process.env.KIWIFY_ALLOWED_PRODUCT_IDS
+      ?.split(",")
+      .map((value) => value.trim())
+      .filter(Boolean) ?? [];
+
   return NextResponse.json({
     ok: true,
     service: "kiwify-webhook",
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    config: {
+      tokenConfigured,
+      simulationConfigured,
+      allowedProductIdsCount: allowedProductIds.length
+    }
   });
 }
 

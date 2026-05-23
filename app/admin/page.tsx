@@ -343,7 +343,7 @@ export default async function AdminPage({
               </label>
               <Button
                 type="submit"
-                className="bg-amber-400 text-amber-950 hover:bg-amber-500 focus-visible:ring-amber-400"
+                className="bg-[#f2c8c8] text-[#5f3535] hover:bg-[#e8b4b4] focus-visible:ring-[#f2c8c8]"
               >
                 Criar categoria
               </Button>

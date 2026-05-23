@@ -16,7 +16,7 @@ function SubmitButton() {
     <Button
       type="submit"
       size="lg"
-      className="w-full bg-amber-400 text-amber-950 hover:bg-amber-500 focus-visible:ring-amber-400 sm:w-auto"
+      className="w-full bg-[#f2c8c8] text-[#5f3535] hover:bg-[#e8b4b4] focus-visible:ring-[#f2c8c8] sm:w-auto"
     >
       {pending ? "Publicando..." : "Publicar sticker"}
     </Button>
@@ -34,7 +34,7 @@ export function AdminCreateStickerForm({
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="space-y-2">
           <span className="text-xs font-semibold uppercase tracking-wide text-muted">
-            Título
+            TÃ­tulo
           </span>
           <Input name="title" required placeholder="Bom dia brilho" />
         </label>

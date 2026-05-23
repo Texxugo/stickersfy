@@ -94,6 +94,7 @@ export function parseKiwifyPayload(payload: unknown): ParsedKiwifyPayload {
 export async function processKiwifyWebhook(payload: unknown, rawBody: string) {
   const parsed = parseKiwifyPayload(payload);
   const dedupeKey = buildDedupeKey(parsed.eventId, rawBody);
+  const ignoredReason = getIgnoredReason(parsed);
 
   const existing = await prisma.kiwifyWebhookDelivery.findUnique({
     where: { dedupeKey },
@@ -103,7 +104,28 @@ export async function processKiwifyWebhook(payload: unknown, rawBody: string) {
   if (existing) {
     return {
       duplicated: true,
-      parsed
+      parsed,
+      ignoredReason: null
+    };
+  }
+
+  if (ignoredReason) {
+    await prisma.kiwifyWebhookDelivery.create({
+      data: {
+        dedupeKey,
+        eventType: parsed.eventType,
+        email: parsed.email,
+        payload: payload as object,
+        processingStatus: WebhookProcessingStatus.IGNORED,
+        errorMessage: ignoredReason,
+        processedAt: new Date()
+      }
+    });
+
+    return {
+      duplicated: false,
+      parsed,
+      ignoredReason
     };
   }
 
@@ -123,7 +145,8 @@ export async function processKiwifyWebhook(payload: unknown, rawBody: string) {
 
     return {
       duplicated: false,
-      parsed
+      parsed,
+      ignoredReason: null
     };
   } catch (error) {
     await prisma.kiwifyWebhookDelivery.create({
@@ -144,6 +167,42 @@ export async function processKiwifyWebhook(payload: unknown, rawBody: string) {
 function buildDedupeKey(eventId: string | null, rawBody: string) {
   if (eventId) return `event:${eventId}`;
   return `hash:${createHash("sha256").update(rawBody).digest("hex")}`;
+}
+
+function getIgnoredReason(parsed: ParsedKiwifyPayload) {
+  if (!parsed.email) {
+    return "Payload sem email de comprador";
+  }
+
+  if (parsed.action === "IGNORE") {
+    return "Evento nao mapeado para controle de acesso";
+  }
+
+  const allowedProductIds = getAllowedProductIds();
+  if (!allowedProductIds) return null;
+
+  if (!parsed.productId) {
+    return "Evento ignorado: productId ausente e allowlist ativa";
+  }
+
+  if (!allowedProductIds.has(parsed.productId)) {
+    return `Evento ignorado: productId ${parsed.productId} fora da allowlist`;
+  }
+
+  return null;
+}
+
+function getAllowedProductIds() {
+  const raw = process.env.KIWIFY_ALLOWED_PRODUCT_IDS?.trim();
+  if (!raw) return null;
+
+  const ids = raw
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (ids.length === 0) return null;
+  return new Set(ids);
 }
 
 function classifyKiwifyAction(eventType: string, status: string | null): KiwifyAction {
@@ -177,15 +236,13 @@ function classifyKiwifyAction(eventType: string, status: string | null): KiwifyA
 }
 
 async function applyKiwifyAction(parsed: ParsedKiwifyPayload) {
-  if (!parsed.email) return;
-
-  if (parsed.action === "IGNORE") {
-    return;
-  }
+  if (!parsed.email || parsed.action === "IGNORE") return;
 
   const now = new Date();
 
   if (parsed.action === "APPROVE") {
+    await ensureUserProvisioned(parsed.email);
+
     await prisma.customerAccess.upsert({
       where: { email: parsed.email },
       update: {
@@ -258,6 +315,18 @@ async function applyKiwifyAction(parsed: ParsedKiwifyPayload) {
       lastEventType: parsed.eventType,
       lastEventAt: now,
       lastBlockedAt: now
+    }
+  });
+}
+
+async function ensureUserProvisioned(email: string) {
+  await prisma.user.upsert({
+    where: { email },
+    update: {
+      email
+    },
+    create: {
+      email
     }
   });
 }

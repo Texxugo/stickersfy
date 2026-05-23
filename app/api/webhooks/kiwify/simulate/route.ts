@@ -37,7 +37,8 @@ export async function POST(request: NextRequest) {
       duplicated: result.duplicated,
       eventType: result.parsed.eventType,
       action: result.parsed.action,
-      email: result.parsed.email
+      email: result.parsed.email,
+      ignoredReason: result.ignoredReason ?? undefined
     });
   } catch (error) {
     return NextResponse.json(

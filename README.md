@@ -49,10 +49,25 @@ MVP mobile-first para plataforma B2C de stickers transparentes.
 
 ## Kiwify (acesso pago)
 
-- Endpoint webhook: `POST /api/webhooks/kiwify?token=SEU_TOKEN`
-- Endpoint simulacao: `POST /api/webhooks/kiwify/simulate?key=SUA_CHAVE`
+Variaveis necessarias:
+- `KIWIFY_WEBHOOK_TOKEN`: token do webhook (validado por query `?token=` ou header `x-kiwify-webhook-token`)
+- `KIWIFY_SIMULATION_KEY`: chave para endpoint interno de simulacao
+- `KIWIFY_ALLOWED_PRODUCT_IDS` (opcional, recomendado): lista de IDs de produto separados por virgula para ignorar eventos de outros produtos
 
-Eventos processados:
-- `approved` / `paid`: ativa acesso
-- `payment_failed` / `declined` / `cancelled`: coloca em carencia de 7 dias
-- `chargeback` / `refund`: bloqueia acesso imediatamente
+Endpoints:
+- Produção: `POST /api/webhooks/kiwify?token=SEU_TOKEN`
+- Simulacao local: `POST /api/webhooks/kiwify/simulate?key=SUA_CHAVE`
+- Health/check config: `GET /api/webhooks/kiwify`
+
+Mapeamento de eventos:
+- `approved` / `paid`: ativa acesso (`ACTIVE`) e provisiona usuario por e-mail
+- `payment_failed` / `declined` / `cancelled` / `subscription_late`: aplica carencia de 7 dias (`GRACE`)
+- `chargeback` / `refund`: bloqueia imediatamente (`BLOCKED`)
+- nao mapeados: salvos como `IGNORED` no log de webhook
+
+Checklist de configuracao na Kiwify:
+1. Em `Apps > Webhooks`, crie webhook para a URL de producao (`https://SEU_DOMINIO/api/webhooks/kiwify?token=SEU_TOKEN`).
+2. Selecione somente os gatilhos necessarios (compra aprovada, compra recusada/atrasada, assinatura cancelada, reembolso, chargeback).
+3. Publique/atualize as variaveis de ambiente na Vercel.
+4. Use `Testar webhook` na Kiwify e valide resposta `ok: true`.
+5. Confira os registros em `KiwifyWebhookDelivery` e o status em `CustomerAccess`.
