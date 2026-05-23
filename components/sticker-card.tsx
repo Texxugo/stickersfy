@@ -12,11 +12,11 @@ export function StickerCard({ sticker }: StickerCardProps) {
   return (
     <Link href={`/gallery/${sticker.slug}`} className="group block">
       <Card className="overflow-hidden transition-transform duration-200 group-hover:-translate-y-1">
-        <div className="relative flex aspect-square items-center justify-center bg-accentSoft">
+        <div className="relative flex aspect-square items-center justify-center bg-[radial-gradient(circle_at_30%_20%,#e2d8c5_0%,#c3b79f_55%,#a89b84_100%)]">
           <img
             src={sticker.imageUrl}
             alt={sticker.title}
-            className="h-28 w-28 object-contain"
+            className="h-36 w-36 object-contain"
           />
         </div>
         <div className="space-y-2 p-4">

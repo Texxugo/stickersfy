@@ -13,7 +13,11 @@ type AdminCreateStickerFormProps = {
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" size="lg" className="w-full sm:w-auto">
+    <Button
+      type="submit"
+      size="lg"
+      className="w-full bg-amber-400 text-amber-950 hover:bg-amber-500 focus-visible:ring-amber-400 sm:w-auto"
+    >
       {pending ? "Publicando..." : "Publicar sticker"}
     </Button>
   );

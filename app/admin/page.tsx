@@ -19,7 +19,11 @@ import { prisma } from "@/lib/db";
 
 const INITIAL_CATEGORIES = ["Bom dia", "Boa tarde", "Boa noite"];
 
-export default async function AdminPage() {
+export default async function AdminPage({
+  searchParams
+}: {
+  searchParams?: Promise<{ catalogCategory?: string }>;
+}) {
   const session = await requireAdminSession();
   const dbConfigured = Boolean(process.env.DATABASE_URL);
 
@@ -48,6 +52,11 @@ export default async function AdminPage() {
   const categories = dbConfigured
     ? dynamicCategories.map((category) => category.name)
     : INITIAL_CATEGORIES;
+  const params = await searchParams;
+  const selectedCatalogCategory = params?.catalogCategory?.trim() ?? "";
+  const filteredStickers = selectedCatalogCategory
+    ? stickers.filter((sticker) => sticker.category.name === selectedCatalogCategory)
+    : stickers;
 
   async function createSticker(formData: FormData) {
     "use server";
@@ -332,51 +341,61 @@ export default async function AdminPage() {
                   className="flex h-11 w-full rounded-xl border border-border bg-white/70 px-4 py-2 text-sm text-text shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 />
               </label>
-              <Button type="submit">Criar categoria</Button>
+              <Button
+                type="submit"
+                className="bg-amber-400 text-amber-950 hover:bg-amber-500 focus-visible:ring-amber-400"
+              >
+                Criar categoria
+              </Button>
             </form>
 
             {dynamicCategories.length > 0 ? (
-              <div className="space-y-2">
-                {dynamicCategories.map((category) => (
-                  <div
-                    key={category.id}
-                    className="flex flex-col gap-2 rounded-xl border border-border bg-white/70 p-3 sm:flex-row sm:items-end sm:justify-between"
-                  >
-                    <form action={updateCategory} className="flex w-full flex-col gap-2 sm:flex-row sm:items-end">
-                      <input type="hidden" name="id" value={category.id} />
-                      <label className="w-full space-y-2 sm:max-w-sm">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-muted">
-                          Nome
-                        </span>
-                        <input
-                          name="name"
-                          required
-                          defaultValue={category.name}
-                          className="flex h-11 w-full rounded-xl border border-border bg-white/70 px-4 py-2 text-sm text-text shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                        />
-                      </label>
-                      <div className="flex gap-2">
-                        <Button type="submit" variant="secondary">
-                          Salvar
-                        </Button>
-                      </div>
-                    </form>
-
-                    <div className="flex items-center gap-2">
-                      <Badge>{category._count.stickers} sticker(s)</Badge>
-                      <form action={deleteCategory}>
+              <div className="rounded-xl border border-border bg-white/40 p-2">
+                <div className="mb-2 px-1 text-xs text-muted">
+                  {dynamicCategories.length} categoria(s) cadastrada(s)
+                </div>
+                <div className="max-h-96 space-y-2 overflow-y-auto pr-1">
+                  {dynamicCategories.map((category) => (
+                    <div
+                      key={category.id}
+                      className="flex flex-col gap-2 rounded-xl border border-border bg-white/70 p-2 sm:flex-row sm:items-end sm:justify-between"
+                    >
+                      <form action={updateCategory} className="flex w-full flex-col gap-2 sm:flex-row sm:items-end">
                         <input type="hidden" name="id" value={category.id} />
-                        <Button
-                          type="submit"
-                          variant="secondary"
-                          className="border-red-300 text-red-700 hover:bg-red-50"
-                        >
-                          Excluir
-                        </Button>
+                        <label className="w-full space-y-1 sm:max-w-sm">
+                          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+                            Nome
+                          </span>
+                          <input
+                            name="name"
+                            required
+                            defaultValue={category.name}
+                            className="flex h-10 w-full rounded-xl border border-border bg-white/70 px-4 py-2 text-sm text-text shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                          />
+                        </label>
+                        <div className="flex gap-2">
+                          <Button type="submit" variant="secondary">
+                            Salvar
+                          </Button>
+                        </div>
                       </form>
+
+                      <div className="flex items-center gap-2">
+                        <Badge>{category._count.stickers} sticker(s)</Badge>
+                        <form action={deleteCategory}>
+                          <input type="hidden" name="id" value={category.id} />
+                          <Button
+                            type="submit"
+                            variant="secondary"
+                            className="border-red-300 text-red-700 hover:bg-red-50"
+                          >
+                            Excluir
+                          </Button>
+                        </form>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             ) : (
               <p className="text-sm text-muted">Nenhuma categoria cadastrada ainda.</p>
@@ -404,146 +423,181 @@ export default async function AdminPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {stickers.length === 0 ? (
+            <form className="rounded-xl border border-border bg-white/50 p-3" action="/admin">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                <label className="w-full space-y-1 sm:max-w-sm">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+                    Filtrar por categoria
+                  </span>
+                  <select
+                    name="catalogCategory"
+                    defaultValue={selectedCatalogCategory}
+                    className="flex h-10 w-full rounded-xl border border-border bg-white/80 px-3 text-sm text-text shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  >
+                    <option value="">Todas as categorias</option>
+                    {dynamicCategories.map((category) => (
+                      <option key={category.id} value={category.name}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="flex gap-2">
+                  <Button type="submit" variant="secondary">
+                    Filtrar
+                  </Button>
+                  <Link
+                    href="/admin"
+                    className="inline-flex h-10 items-center justify-center rounded-xl border border-border bg-white/80 px-4 text-sm font-semibold text-text hover:bg-accentSoft"
+                  >
+                    Limpar
+                  </Link>
+                </div>
+              </div>
+            </form>
+
+            {filteredStickers.length === 0 ? (
               <p className="text-sm text-muted">Ainda nao ha stickers cadastrados.</p>
             ) : (
-              stickers.map((sticker) => (
-                <div key={sticker.id} className="rounded-xl border border-border bg-white/70 p-3">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={sticker.imageUrl}
-                        alt={sticker.title}
-                        className="h-14 w-14 rounded-lg bg-accentSoft p-1 object-contain"
-                      />
-                      <div>
-                        <p className="font-semibold text-text">{sticker.title}</p>
-                        <p className="text-xs text-muted">{sticker.phrase}</p>
-                        <div className="mt-1 flex flex-wrap gap-2">
-                          <Badge>{sticker.category.name}</Badge>
-                          <Badge>{sticker.published ? "Publicado" : "Oculto"}</Badge>
-                          <Badge>
-                            {sticker.imageUrl.toLowerCase().includes(".svg") ? "SVG" : "PNG"}
-                          </Badge>
-                        </div>
-                        {sticker.variants.length > 0 ? (
-                          <div className="mt-2 flex flex-wrap items-center gap-2">
-                            {sticker.variants.map((variant) => (
-                              <span
-                                key={variant.id}
-                                className="h-5 w-5 rounded-full border border-white shadow"
-                                style={{ backgroundColor: variant.colorHex }}
-                                title={`${variant.colorHex}`}
-                              />
-                            ))}
+              <div className="max-h-[70vh] space-y-3 overflow-y-auto pr-1">
+                {filteredStickers.map((sticker) => (
+                  <div key={sticker.id} className="rounded-xl border border-border bg-white/70 p-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={sticker.imageUrl}
+                          alt={sticker.title}
+                          className="h-12 w-12 rounded-lg bg-accentSoft p-1 object-contain"
+                        />
+                        <div>
+                          <p className="font-semibold text-text">{sticker.title}</p>
+                          <p className="text-xs text-muted">{sticker.phrase}</p>
+                          <div className="mt-1 flex flex-wrap gap-2">
+                            <Badge>{sticker.category.name}</Badge>
+                            <Badge>{sticker.published ? "Publicado" : "Oculto"}</Badge>
+                            <Badge>
+                              {sticker.imageUrl.toLowerCase().includes(".svg") ? "SVG" : "PNG"}
+                            </Badge>
                           </div>
-                        ) : (
-                          <p className="mt-2 text-xs text-warning">Sem variantes configuradas.</p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2 self-start">
-                      <form action={togglePublish}>
-                        <input type="hidden" name="id" value={sticker.id} />
-                        <input type="hidden" name="published" value={String(sticker.published)} />
-                        <Button type="submit" variant={sticker.published ? "secondary" : "primary"}>
-                          {sticker.published ? "Despublicar" : "Publicar"}
-                        </Button>
-                      </form>
-
-                      <form action={deleteSticker}>
-                        <input type="hidden" name="id" value={sticker.id} />
-                        <Button
-                          type="submit"
-                          variant="secondary"
-                          className="border-red-300 text-red-700 hover:bg-red-50"
-                        >
-                          Excluir
-                        </Button>
-                      </form>
-                    </div>
-                  </div>
-
-                  <div className="mt-2 rounded-xl border border-border bg-white/60 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-                      Variantes de cor
-                    </p>
-
-                    <form action={createVariant} className="mt-2 grid gap-2 sm:grid-cols-4">
-                      <input type="hidden" name="stickerId" value={sticker.id} />
-                      <label className="space-y-1">
-                        <span className="text-[11px] uppercase tracking-wide text-muted">Cor</span>
-                        <input
-                          name="colorHex"
-                          type="text"
-                          required
-                          placeholder="#F97316"
-                          className="flex h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                        />
-                      </label>
-                      <label className="space-y-1 sm:col-span-2">
-                        <span className="text-[11px] uppercase tracking-wide text-muted">
-                          URL da variante
-                        </span>
-                        <input
-                          name="imageUrl"
-                          type="url"
-                          required
-                          placeholder="https://res.cloudinary.com/.../sticker-rosa.svg"
-                          className="flex h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                        />
-                      </label>
-                      <label className="space-y-1">
-                        <span className="text-[11px] uppercase tracking-wide text-muted">Ordem</span>
-                        <input
-                          name="sortOrder"
-                          type="number"
-                          defaultValue={0}
-                          className="flex h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                        />
-                      </label>
-                      <div className="sm:col-span-4">
-                        <Button type="submit" variant="secondary">
-                          Adicionar variante
-                        </Button>
-                      </div>
-                    </form>
-
-                    {sticker.variants.length > 0 ? (
-                      <div className="mt-3 space-y-2">
-                        {sticker.variants.map((variant) => (
-                          <div
-                            key={variant.id}
-                            className="flex flex-col gap-2 rounded-lg border border-border bg-white/80 p-2 sm:flex-row sm:items-center sm:justify-between"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span
-                                className="h-6 w-6 rounded-full border border-white shadow"
-                                style={{ backgroundColor: variant.colorHex }}
-                              />
-                              <span className="text-xs font-semibold text-text">{variant.colorHex}</span>
-                              <span className="text-xs text-muted">
-                                {variant.imageUrl.toLowerCase().includes(".svg") ? "SVG" : "PNG"}
-                              </span>
+                          {sticker.variants.length > 0 ? (
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              {sticker.variants.map((variant) => (
+                                <span
+                                  key={variant.id}
+                                  className="h-4 w-4 rounded-full border border-white shadow"
+                                  style={{ backgroundColor: variant.colorHex }}
+                                  title={`${variant.colorHex}`}
+                                />
+                              ))}
                             </div>
-                            <form action={deleteVariant}>
-                              <input type="hidden" name="id" value={variant.id} />
-                              <Button
-                                type="submit"
-                                variant="secondary"
-                                className="border-red-300 text-red-700 hover:bg-red-50"
-                              >
-                                Excluir variante
-                              </Button>
-                            </form>
-                          </div>
-                        ))}
+                          ) : (
+                            <p className="mt-2 text-xs text-warning">Sem variantes configuradas.</p>
+                          )}
+                        </div>
                       </div>
-                    ) : null}
+
+                      <div className="flex gap-2 self-start">
+                        <form action={togglePublish}>
+                          <input type="hidden" name="id" value={sticker.id} />
+                          <input type="hidden" name="published" value={String(sticker.published)} />
+                          <Button type="submit" variant={sticker.published ? "secondary" : "primary"}>
+                            {sticker.published ? "Despublicar" : "Publicar"}
+                          </Button>
+                        </form>
+
+                        <form action={deleteSticker}>
+                          <input type="hidden" name="id" value={sticker.id} />
+                          <Button
+                            type="submit"
+                            variant="secondary"
+                            className="border-red-300 text-red-700 hover:bg-red-50"
+                          >
+                            Excluir
+                          </Button>
+                        </form>
+                      </div>
+                    </div>
+
+                    <details className="mt-2 rounded-xl border border-border bg-white/60 p-3">
+                      <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-muted">
+                        Gerenciar variantes ({sticker.variants.length})
+                      </summary>
+
+                      <form action={createVariant} className="mt-3 grid gap-2 sm:grid-cols-4">
+                        <input type="hidden" name="stickerId" value={sticker.id} />
+                        <label className="space-y-1">
+                          <span className="text-[11px] uppercase tracking-wide text-muted">Cor</span>
+                          <input
+                            name="colorHex"
+                            type="text"
+                            required
+                            placeholder="#F97316"
+                            className="flex h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                          />
+                        </label>
+                        <label className="space-y-1 sm:col-span-2">
+                          <span className="text-[11px] uppercase tracking-wide text-muted">
+                            URL da variante
+                          </span>
+                          <input
+                            name="imageUrl"
+                            type="url"
+                            required
+                            placeholder="https://res.cloudinary.com/.../sticker-rosa.svg"
+                            className="flex h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                          />
+                        </label>
+                        <label className="space-y-1">
+                          <span className="text-[11px] uppercase tracking-wide text-muted">Ordem</span>
+                          <input
+                            name="sortOrder"
+                            type="number"
+                            defaultValue={0}
+                            className="flex h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                          />
+                        </label>
+                        <div className="sm:col-span-4">
+                          <Button type="submit" variant="secondary">
+                            Adicionar variante
+                          </Button>
+                        </div>
+                      </form>
+
+                      {sticker.variants.length > 0 ? (
+                        <div className="mt-3 space-y-2">
+                          {sticker.variants.map((variant) => (
+                            <div
+                              key={variant.id}
+                              className="flex flex-col gap-2 rounded-lg border border-border bg-white/80 p-2 sm:flex-row sm:items-center sm:justify-between"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className="h-6 w-6 rounded-full border border-white shadow"
+                                  style={{ backgroundColor: variant.colorHex }}
+                                />
+                                <span className="text-xs font-semibold text-text">{variant.colorHex}</span>
+                                <span className="text-xs text-muted">
+                                  {variant.imageUrl.toLowerCase().includes(".svg") ? "SVG" : "PNG"}
+                                </span>
+                              </div>
+                              <form action={deleteVariant}>
+                                <input type="hidden" name="id" value={variant.id} />
+                                <Button
+                                  type="submit"
+                                  variant="secondary"
+                                  className="border-red-300 text-red-700 hover:bg-red-50"
+                                >
+                                  Excluir variante
+                                </Button>
+                              </form>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                    </details>
                   </div>
-                </div>
-              ))
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>

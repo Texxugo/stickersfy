@@ -37,38 +37,62 @@ export default async function GalleryPage({
       <main className="mx-auto w-full max-w-5xl space-y-6 px-4 py-6">
         <section className="space-y-4 rounded-2xl border border-border bg-card/80 p-4 shadow-soft">
           <div>
-            <h1 className="font-title text-4xl leading-none">Galeria de stickers</h1>
-            <p className="text-sm text-muted">
-              Mobile-first: copie ou baixe stickers de forma rápida para stories.
+            <h1 className="font-title text-4xl leading-none sm:text-5xl">Galeria de stickers</h1>
+            <p className="text-base text-muted sm:text-lg">
+              Mobile-first: copie ou baixe stickers de forma rapida para stories.
             </p>
           </div>
 
           <form className="grid gap-2 sm:grid-cols-[1fr_auto]">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-amber-500" />
               <Input
                 name="q"
                 defaultValue={q}
-                className="pl-9"
-                placeholder="Busque por frase ou título"
+                className="h-12 border-amber-300 pl-10 text-base placeholder:text-slate-500 focus-visible:ring-amber-400"
+                placeholder="Busque por frase ou titulo"
               />
             </div>
-            <Button type="submit">Buscar</Button>
+            <Button
+              type="submit"
+              size="lg"
+              className="bg-amber-400 text-amber-950 hover:bg-amber-500 focus-visible:ring-amber-400"
+            >
+              Buscar
+            </Button>
           </form>
 
-          <div className="flex flex-wrap gap-2">
-            <Link href="/gallery">
-              <Badge className={!category ? "bg-accent text-white border-accent" : ""}>
-                Todas
-              </Badge>
-            </Link>
-            {categories.map((item) => (
-              <Link key={item} href={`/gallery?category=${encodeURIComponent(item)}${q ? `&q=${encodeURIComponent(q)}` : ""}`}>
-                <Badge className={category === item ? "bg-accent text-white border-accent" : ""}>
-                  {item}
+          <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-2">
+            <div className="flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible">
+              <Link href="/gallery" className="shrink-0">
+                <Badge
+                  className={`px-4 py-1.5 text-sm ${
+                    !category
+                      ? "border-amber-400 bg-amber-300 text-amber-950"
+                      : "border-amber-200 bg-white/90 text-slate-700 hover:bg-amber-50"
+                  }`}
+                >
+                  Todas
                 </Badge>
               </Link>
-            ))}
+              {categories.map((item) => (
+                <Link
+                  key={item}
+                  href={`/gallery?category=${encodeURIComponent(item)}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
+                  className="shrink-0"
+                >
+                  <Badge
+                    className={`px-4 py-1.5 text-sm ${
+                      category === item
+                        ? "border-amber-400 bg-amber-300 text-amber-950"
+                        : "border-amber-200 bg-white/90 text-slate-700 hover:bg-amber-50"
+                    }`}
+                  >
+                    {item}
+                  </Badge>
+                </Link>
+              ))}
+            </div>
           </div>
         </section>
 

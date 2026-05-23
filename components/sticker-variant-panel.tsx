@@ -31,11 +31,18 @@ export function StickerVariantPanel({
   );
 
   const currentImageUrl = selectedVariant?.imageUrl ?? baseImageUrl;
+  const previewWidth = Math.min(Math.max(width * 3.4, 260), 430);
+  const previewHeight = Math.min(Math.max(height * 3.4, 260), 430);
 
   return (
     <div className="space-y-4">
-      <div className="flex aspect-square items-center justify-center rounded-2xl border border-dashed border-border bg-accentSoft">
-        <img src={currentImageUrl} alt={title} className="h-48 w-48 object-contain" />
+      <div className="flex aspect-square items-center justify-center overflow-hidden rounded-2xl border border-dashed border-border bg-[radial-gradient(circle_at_30%_20%,#e2d8c5_0%,#c3b79f_55%,#a89b84_100%)]">
+        <img
+          src={currentImageUrl}
+          alt={title}
+          className="object-contain drop-shadow-[0_0_10px_rgba(255,255,255,0.65)] [filter:drop-shadow(0_0_10px_rgba(255,255,255,0.65))_drop-shadow(0_0_10px_rgba(0,0,0,0.38))]"
+          style={{ width: previewWidth, height: previewHeight }}
+        />
       </div>
 
       {variants.length > 0 ? (
@@ -64,7 +71,7 @@ export function StickerVariantPanel({
         </div>
       ) : null}
 
-      <StickerActions title={title} imageUrl={currentImageUrl} width={width} height={height} />
+      <StickerActions imageUrl={currentImageUrl} width={width} height={height} />
     </div>
   );
 }
