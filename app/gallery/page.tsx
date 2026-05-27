@@ -63,8 +63,8 @@ export default async function GalleryPage({
           </form>
 
           <div className="rounded-xl border border-[#f2c8c8] bg-[#fdf5f5] p-2">
-            <div className="flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible">
-              <Link href="/gallery" className="shrink-0">
+            <div className="flex flex-wrap gap-2">
+              <Link href="/gallery">
                 <Badge
                   className={`px-4 py-1.5 text-sm ${
                     !category
@@ -79,7 +79,6 @@ export default async function GalleryPage({
                 <Link
                   key={item}
                   href={`/gallery?category=${encodeURIComponent(item)}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
-                  className="shrink-0"
                 >
                   <Badge
                     className={`px-4 py-1.5 text-sm ${

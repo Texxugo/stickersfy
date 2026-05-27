@@ -1,7 +1,13 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 
 import { auth, signIn } from "@/auth";
 import { getAccessDecision } from "@/lib/access-control";
+import {
+  createMagicLinkBridge,
+  MAGIC_LINK_BRIDGE_COOKIE,
+  serializeMagicLinkBridgeCookie
+} from "@/lib/magic-link-bridge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoginForm } from "@/components/login-form";
 
@@ -30,9 +36,20 @@ export default async function LoginPage({
     const email = String(formData.get("email") ?? "").trim().toLowerCase();
     if (!email) return;
 
+    const bridge = await createMagicLinkBridge(email);
+    (await cookies()).set({
+      name: MAGIC_LINK_BRIDGE_COOKIE,
+      value: serializeMagicLinkBridgeCookie(bridge.id, bridge.secret),
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      expires: bridge.expiresAt,
+      path: "/"
+    });
+
     await signIn("resend", {
       email,
-      redirectTo: "/gallery"
+      redirectTo: `/login/complete?bridgeId=${bridge.id}`
     });
   }
 

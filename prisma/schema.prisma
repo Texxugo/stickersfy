@@ -40,6 +40,13 @@ enum WebhookProcessingStatus {
   FAILED
 }
 
+enum MagicLinkBridgeStatus {
+  PENDING
+  APPROVED
+  CONSUMED
+  EXPIRED
+}
+
 model Account {
   userId            String
   type              String
@@ -142,4 +149,20 @@ model KiwifyWebhookDelivery {
   errorMessage     String?
   receivedAt       DateTime                @default(now())
   processedAt      DateTime?
+}
+
+model MagicLinkBridge {
+  id           String                @id @default(cuid())
+  email        String
+  secretHash   String
+  status       MagicLinkBridgeStatus @default(PENDING)
+  exchangeCode String?               @unique
+  approvedAt   DateTime?
+  consumedAt   DateTime?
+  expiresAt    DateTime
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  @@index([email, createdAt])
+  @@index([expiresAt])
 }

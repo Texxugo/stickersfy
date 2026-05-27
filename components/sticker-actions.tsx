@@ -93,7 +93,12 @@ export function StickerActions({ imageUrl, width, height }: StickerActionsProps)
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-1 gap-2">
-        <Button type="button" size="lg" onClick={handleCopy}>
+        <Button
+          type="button"
+          size="lg"
+          onClick={handleCopy}
+          className="bg-[#f2c8c8] text-[#5f3535] hover:bg-[#e8b4b4] focus-visible:ring-[#f2c8c8]"
+        >
           <Copy className="mr-2 h-4 w-4" />
           Copiar Sticker
         </Button>
