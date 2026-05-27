@@ -47,12 +47,27 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   callbacks: {
     async signIn(params) {
+      const providerId = params.account?.provider;
       const candidateEmail =
         params.user?.email?.trim().toLowerCase() ??
         (params as { email?: { email?: string } }).email?.email?.trim().toLowerCase() ??
         null;
 
-      if (!candidateEmail) return false;
+      if (!candidateEmail) {
+        if (providerId === "magic-bridge" && params.user?.id) {
+          const existing = await prisma.user.findUnique({
+            where: { id: params.user.id },
+            select: { email: true }
+          });
+
+          if (existing?.email) {
+            const decision = await getAccessDecision(existing.email.trim().toLowerCase());
+            return decision.allowed;
+          }
+        }
+
+        return false;
+      }
 
       const decision = await getAccessDecision(candidateEmail);
       return decision.allowed;

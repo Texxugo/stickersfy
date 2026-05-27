@@ -1,6 +1,6 @@
 "use client";
 
-import { signIn } from "next-auth/react";
+import { getSession, signIn } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 
 type BridgeStatus =
@@ -27,13 +27,24 @@ export function MagicLinkWaiting() {
         const result = await signIn("magic-bridge", {
           code,
           redirect: false,
-          callbackUrl: "/gallery"
+          redirectTo: "/gallery"
         });
 
-        if (result?.url) {
-          window.location.href = result.url;
+        if (result?.error) {
+          signingInRef.current = false;
+          if (!canceled) setState("error");
           return;
         }
+
+        const session = await getSession();
+        if (session?.user?.email) {
+          window.location.href = "/gallery";
+          return;
+        }
+
+        // Fallback para inconsistencias de retorno no cliente do Auth.js v5.
+        window.location.href = "/gallery";
+        return;
       } catch {
         // fica no fallback abaixo
       }
