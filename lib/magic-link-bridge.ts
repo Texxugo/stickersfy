@@ -78,6 +78,24 @@ export async function approveMagicLinkBridge(id: string, email: string) {
   return true;
 }
 
+export async function approveMagicLinkBridgesForEmail(email: string) {
+  const now = new Date();
+
+  await prisma.magicLinkBridge.updateMany({
+    where: {
+      email,
+      expiresAt: { gt: now },
+      status: {
+        in: ["PENDING", "APPROVED"]
+      }
+    },
+    data: {
+      status: "APPROVED",
+      approvedAt: now
+    }
+  });
+}
+
 export async function readMagicLinkBridgeStatus(
   cookieValue: string | undefined | null
 ): Promise<MagicBridgeStatusResult> {
