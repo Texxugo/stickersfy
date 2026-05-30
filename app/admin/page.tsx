@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { isAdminEmail } from "@/lib/admin-emails";
+import { isPanelBypassEnabled } from "@/lib/panel-bypass";
 import { Navbar } from "@/components/navbar";
 import { AdminCreateStickerForm } from "@/components/admin-create-sticker-form";
 import { Badge } from "@/components/ui/badge";
@@ -607,6 +608,14 @@ export default async function AdminPage({
 }
 
 async function requireAdminSession() {
+  if (isPanelBypassEnabled()) {
+    const fallbackEmail =
+      process.env.ADMIN_EMAIL?.trim() ||
+      process.env.ADMIN_EMAILS?.split(",")[0]?.trim() ||
+      "admin@local.test";
+    return { email: fallbackEmail };
+  }
+
   const session = await auth();
   if (!session?.user?.email) redirect("/login");
 

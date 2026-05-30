@@ -8,6 +8,7 @@ import { StickerVariantPanel } from "@/components/sticker-variant-panel";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { getAccessDecision } from "@/lib/access-control";
+import { isPanelBypassEnabled } from "@/lib/panel-bypass";
 import { getStickerBySlug } from "@/lib/sticker-data";
 
 export default async function StickerDetailPage({
@@ -15,10 +16,22 @@ export default async function StickerDetailPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
+  const bypassEnabled = isPanelBypassEnabled();
   const session = await auth();
-  if (!session?.user?.email) redirect("/login");
-  const access = await getAccessDecision(session.user.email);
-  if (!access.allowed) redirect("/no-access");
+
+  let viewerEmail = session?.user?.email ?? null;
+  if (!viewerEmail && bypassEnabled) {
+    viewerEmail =
+      process.env.ADMIN_EMAIL?.trim() ||
+      process.env.ADMIN_EMAILS?.split(",")[0]?.trim() ||
+      "admin@local.test";
+  }
+
+  if (!viewerEmail) redirect("/login");
+  if (!bypassEnabled) {
+    const access = await getAccessDecision(viewerEmail);
+    if (!access.allowed) redirect("/no-access");
+  }
 
   const { slug } = await params;
   const sticker = await getStickerBySlug(slug);
@@ -26,7 +39,7 @@ export default async function StickerDetailPage({
 
   return (
     <div className="min-h-screen">
-      <Navbar email={session.user.email} />
+      <Navbar email={viewerEmail} />
 
       <main className="mx-auto w-full max-w-3xl space-y-4 px-4 py-6">
         <Link

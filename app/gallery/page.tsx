@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Search } from "lucide-react";
 
@@ -6,9 +5,9 @@ import { auth } from "@/auth";
 import { Navbar } from "@/components/navbar";
 import { StickerCard } from "@/components/sticker-card";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getAccessDecision } from "@/lib/access-control";
+import { isPanelBypassEnabled } from "@/lib/panel-bypass";
 import { getCategories, getPublishedStickers } from "@/lib/sticker-data";
 
 export default async function GalleryPage({
@@ -16,10 +15,22 @@ export default async function GalleryPage({
 }: {
   searchParams: Promise<{ q?: string; category?: string }>;
 }) {
+  const bypassEnabled = isPanelBypassEnabled();
   const session = await auth();
-  if (!session?.user?.email) redirect("/login");
-  const access = await getAccessDecision(session.user.email);
-  if (!access.allowed) redirect("/no-access");
+
+  let viewerEmail = session?.user?.email ?? null;
+  if (!viewerEmail && bypassEnabled) {
+    viewerEmail =
+      process.env.ADMIN_EMAIL?.trim() ||
+      process.env.ADMIN_EMAILS?.split(",")[0]?.trim() ||
+      "admin@local.test";
+  }
+
+  if (!viewerEmail) redirect("/login");
+  if (!bypassEnabled) {
+    const access = await getAccessDecision(viewerEmail);
+    if (!access.allowed) redirect("/no-access");
+  }
 
   const params = await searchParams;
   const q = params.q?.trim() ?? "";
@@ -32,14 +43,21 @@ export default async function GalleryPage({
 
   return (
     <div className="min-h-screen">
-      <Navbar email={session.user.email} />
+      <Navbar
+        email={viewerEmail}
+        galleryMenu={{
+          categories,
+          currentCategory: category,
+          q
+        }}
+      />
 
       <main className="mx-auto w-full max-w-5xl space-y-6 px-4 py-6">
         <section className="space-y-4 rounded-2xl border border-border bg-card/80 p-4 shadow-soft">
           <div>
             <h1 className="font-title text-4xl leading-none sm:text-5xl">Galeria de stickers</h1>
             <p className="text-base text-muted sm:text-lg">
-              Mobile-first: copie ou baixe stickers de forma rapida para stories.
+              Seu story merece mais: merece Stickersfy ❤️
             </p>
           </div>
 
@@ -61,38 +79,6 @@ export default async function GalleryPage({
               Buscar
             </Button>
           </form>
-
-          <div className="rounded-xl border border-[#f2c8c8] bg-[#fdf5f5] p-2">
-            <div className="flex flex-wrap gap-2">
-              <Link href="/gallery">
-                <Badge
-                  className={`px-4 py-1.5 text-sm ${
-                    !category
-                      ? "border-[#f2c8c8] bg-[#f2c8c8] text-[#5f3535]"
-                      : "border-[#f2c8c8] bg-white/90 text-slate-700 hover:bg-[#fdf1f1]"
-                  }`}
-                >
-                  Todas
-                </Badge>
-              </Link>
-              {categories.map((item) => (
-                <Link
-                  key={item}
-                  href={`/gallery?category=${encodeURIComponent(item)}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
-                >
-                  <Badge
-                    className={`px-4 py-1.5 text-sm ${
-                      category === item
-                        ? "border-[#f2c8c8] bg-[#f2c8c8] text-[#5f3535]"
-                        : "border-[#f2c8c8] bg-white/90 text-slate-700 hover:bg-[#fdf1f1]"
-                    }`}
-                  >
-                    {item}
-                  </Badge>
-                </Link>
-              ))}
-            </div>
-          </div>
         </section>
 
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">

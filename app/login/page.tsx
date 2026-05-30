@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 
 import { auth, signIn } from "@/auth";
 import { getAccessDecision } from "@/lib/access-control";
+import { isPanelBypassEnabled } from "@/lib/panel-bypass";
 import {
   createMagicLinkBridge,
   MAGIC_LINK_BRIDGE_COOKIE,
@@ -16,6 +17,10 @@ export default async function LoginPage({
 }: {
   searchParams?: Promise<{ error?: string }>;
 }) {
+  if (isPanelBypassEnabled()) {
+    redirect("/admin");
+  }
+
   const session = await auth();
   if (session?.user?.email) {
     const decision = await getAccessDecision(session.user.email);
