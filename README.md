@@ -28,6 +28,7 @@ MVP mobile-first para plataforma B2C de stickers transparentes.
 2. Configure variaveis:
    - copie `.env.example` para `.env.local`
    - para admins: use `ADMIN_EMAIL` (1) ou `ADMIN_EMAILS` (lista separada por virgula)
+   - para acesso antecipado sem Kiwify (sem admin): use `EARLY_ACCESS_EMAIL` (1) ou `EARLY_ACCESS_EMAILS` (lista separada por virgula)
 3. Gere cliente Prisma:
    - `npm run prisma:generate`
 4. Aplique migration inicial:
@@ -64,6 +65,10 @@ Mapeamento de eventos:
 - `payment_failed` / `declined` / `cancelled` / `subscription_late`: aplica carencia de 7 dias (`GRACE`)
 - `chargeback` / `refund`: bloqueia imediatamente (`BLOCKED`)
 - nao mapeados: salvos como `IGNORED` no log de webhook
+
+Regra de acesso antecipado:
+- E-mails em `EARLY_ACCESS_EMAIL` / `EARLY_ACCESS_EMAILS` entram na galeria mesmo sem compra aprovada na Kiwify.
+- Esses e-mails nao ganham permissao de admin automaticamente.
 
 Checklist de configuracao na Kiwify:
 1. Em `Apps > Webhooks`, crie webhook para a URL de producao (`https://SEU_DOMINIO/api/webhooks/kiwify?token=SEU_TOKEN`).

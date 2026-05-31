@@ -2,6 +2,7 @@ import { AccessStatus, type CustomerAccess } from "@prisma/client";
 
 import { isAdminEmail } from "@/lib/admin-emails";
 import { prisma } from "@/lib/db";
+import { isEarlyAccessEmail } from "@/lib/early-access-emails";
 
 const DEFAULT_GRACE_DAYS = 7;
 
@@ -9,6 +10,7 @@ export type AccessDecision = {
   allowed: boolean;
   reason:
     | "admin"
+    | "early-access"
     | "active"
     | "grace"
     | "grace-expired"
@@ -23,6 +25,14 @@ export async function getAccessDecision(email: string): Promise<AccessDecision> 
     return {
       allowed: true,
       reason: "admin",
+      record: null
+    };
+  }
+
+  if (isEarlyAccessEmail(normalizedEmail)) {
+    return {
+      allowed: true,
+      reason: "early-access",
       record: null
     };
   }
