@@ -136,9 +136,28 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     verifyRequest: "/login/verify-request"
   },
   session: {
-    strategy: "database"
+    strategy: "jwt"
   },
   callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.sub = user.id ?? token.sub;
+        token.email = user.email ?? token.email;
+        token.name = user.name ?? token.name;
+        token.picture = user.image ?? token.picture;
+      }
+
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.email = token.email ?? session.user.email;
+        session.user.name = token.name ?? session.user.name;
+        session.user.image = token.picture ?? session.user.image;
+      }
+
+      return session;
+    },
     async signIn(params) {
       const providerId = params.account?.provider;
       const candidateEmail =
