@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Menu, X } from "lucide-react";
 
+import { SuggestionModal } from "@/components/suggestion-modal";
+
 type GalleryHamburgerMenuProps = {
   categories: string[];
   currentCategory: string;
@@ -80,6 +82,9 @@ export function GalleryHamburgerMenu({
                   Acessar admin
                 </Link>
               ) : null}
+              <SuggestionModal
+                className="flex w-full items-center gap-2 rounded-xl border border-[#f2c8c8] bg-white px-3 py-2 text-left text-sm font-semibold text-[#5f3535]"
+              />
             </div>
 
             <div className="mt-5 space-y-2">

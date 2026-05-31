@@ -4,6 +4,7 @@ import { Search } from "lucide-react";
 import { auth } from "@/auth";
 import { Navbar } from "@/components/navbar";
 import { StickerCard } from "@/components/sticker-card";
+import { SuggestionModal } from "@/components/suggestion-modal";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { getAccessDecision } from "@/lib/access-control";
@@ -54,11 +55,16 @@ export default async function GalleryPage({
 
       <main className="mx-auto w-full max-w-5xl space-y-6 px-4 py-6">
         <section className="space-y-4 rounded-2xl border border-border bg-card/80 p-4 shadow-soft">
-          <div>
-            <h1 className="font-title text-4xl leading-none sm:text-5xl">Galeria de stickers</h1>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h1 className="font-title text-4xl leading-none sm:text-5xl">Galeria de stickers</h1>
             <p className="text-base text-muted sm:text-lg">
               Seu story merece mais: merece Stickersfy ❤️
             </p>
+            </div>
+            <div className="hidden sm:block">
+              <SuggestionModal className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#f2c8c8] bg-white px-4 text-sm font-semibold text-[#5f3535] shadow-sm transition hover:bg-[#fdf1f1]" />
+            </div>
           </div>
 
           <form className="grid gap-2 sm:grid-cols-[1fr_auto]">

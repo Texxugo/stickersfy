@@ -166,3 +166,13 @@ model MagicLinkBridge {
   @@index([email, createdAt])
   @@index([expiresAt])
 }
+
+model PhraseSuggestion {
+  id        String   @id @default(cuid())
+  name      String
+  message   String   @db.Text
+  userEmail String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}

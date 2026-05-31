@@ -20,6 +20,8 @@ import { prisma } from "@/lib/db";
 
 const INITIAL_CATEGORIES = ["Bom dia", "Boa tarde", "Boa noite"];
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminPage({
   searchParams
 }: {
@@ -49,6 +51,7 @@ export default async function AdminPage({
         })
       ])
     : [[], []];
+  const suggestions = dbConfigured ? await getPhraseSuggestions() : [];
 
   const categories = dbConfigured
     ? dynamicCategories.map((category) => category.name)
@@ -321,6 +324,45 @@ export default async function AdminPage({
             </CardContent>
           </Card>
         ) : null}
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Sugestoes de frases</CardTitle>
+            <CardDescription>
+              Mensagens enviadas pelos usuarios. Somente admins conseguem ver esta lista.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {suggestions.length > 0 ? (
+              <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+                {suggestions.map((suggestion) => (
+                  <div
+                    key={suggestion.id}
+                    className="rounded-xl border border-border bg-white/70 p-3"
+                  >
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="font-semibold text-text">{suggestion.name}</p>
+                      <p className="text-xs text-muted">
+                        {suggestion.createdAt.toLocaleString("pt-BR", {
+                          dateStyle: "short",
+                          timeStyle: "short"
+                        })}
+                      </p>
+                    </div>
+                    <p className="mt-2 whitespace-pre-wrap text-sm text-text">
+                      {suggestion.message}
+                    </p>
+                    {suggestion.userEmail ? (
+                      <p className="mt-2 text-xs text-muted">Login: {suggestion.userEmail}</p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted">Nenhuma sugestao enviada ainda.</p>
+            )}
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
@@ -633,6 +675,17 @@ async function requireAdminSession() {
 function assertDatabaseConfigured() {
   if (!process.env.DATABASE_URL) {
     throw new Error("DATABASE_URL nao configurada.");
+  }
+}
+
+async function getPhraseSuggestions() {
+  try {
+    return await prisma.phraseSuggestion.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 50
+    });
+  } catch {
+    return [];
   }
 }
 
