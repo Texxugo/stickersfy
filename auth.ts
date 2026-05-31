@@ -33,8 +33,8 @@ const provider = Resend({
 });
 
 function buildVerificationEmailHtml(url: string) {
-  const origin = new URL(url).origin;
-  const detailImageUrl = `${origin}/stickersfy-email-detail.png`;
+  const detailImageUrl =
+    "https://res.cloudinary.com/daqviwwrv/image/upload/v1780195853/ChatGPT_Image_30_de_mai._de_2026__23_49_26-removebg-preview_nacqz8.png";
 
   return `
 <!doctype html>
