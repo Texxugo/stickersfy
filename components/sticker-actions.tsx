@@ -68,23 +68,27 @@ export function StickerActions({ imageUrl, width, height }: StickerActionsProps)
 
       if (!sourceBlob) throw new Error("copy-asset-not-ready");
 
-      if (sourceFormat === "svg") {
+      if (sourceFormat === "svg" && !isAndroid()) {
         const copiedSvg = await tryWriteClipboardBlob(sourceBlob, "image/svg+xml");
         if (copiedSvg) {
           setMessage("Sticker SVG copiado para a area de transferencia.");
           return;
         }
-
-        const pngBlob =
-          prepared.pngBlob ??
-          (await convertSvgBlobToPngHighQuality(sourceBlob, width, height));
-        await writeClipboardBlob(pngBlob, "image/png");
-        setMessage("Sticker SVG convertido para PNG em alta qualidade e copiado.");
-        return;
       }
 
-      await writeClipboardBlob(sourceBlob, sourceBlob.type || "image/png");
-      setMessage("Sticker copiado como imagem.");
+      const imageBlob =
+        prepared.pngBlob ??
+        (sourceFormat === "svg"
+          ? await convertSvgBlobToPngHighQuality(sourceBlob, width, height)
+          : sourceBlob);
+
+      if (!imageBlob) throw new Error("copy-asset-not-ready");
+      await writeClipboardBlob(imageBlob, "image/png");
+      setMessage(
+        sourceFormat === "svg"
+          ? "Sticker copiado como PNG em alta resolucao."
+          : "Sticker copiado como imagem."
+      );
     } catch {
       setMessage("Nao foi possivel copiar no seu navegador.");
     }
@@ -127,6 +131,14 @@ async function writeClipboardBlob(blob: Blob, mime: string) {
     throw new Error("clipboard-not-supported");
   }
 
+  const clipboardItemWithSupports = window.ClipboardItem as typeof ClipboardItem & {
+    supports?: (type: string) => boolean;
+  };
+
+  if (clipboardItemWithSupports.supports && !clipboardItemWithSupports.supports(mime)) {
+    throw new Error("clipboard-mime-not-supported");
+  }
+
   await navigator.clipboard.write([
     new window.ClipboardItem({
       [mime]: blob
@@ -135,16 +147,6 @@ async function writeClipboardBlob(blob: Blob, mime: string) {
 }
 
 async function tryWriteClipboardBlob(blob: Blob, mime: string) {
-  if (!navigator.clipboard || !window.ClipboardItem) return false;
-
-  const clipboardItemWithSupports = window.ClipboardItem as typeof ClipboardItem & {
-    supports?: (type: string) => boolean;
-  };
-
-  if (clipboardItemWithSupports.supports && !clipboardItemWithSupports.supports(mime)) {
-    return false;
-  }
-
   try {
     await writeClipboardBlob(blob, mime);
     return true;
@@ -204,4 +206,8 @@ function canvasToBlob(canvas: HTMLCanvasElement, type: string) {
       resolve(blob);
     }, type);
   });
+}
+
+function isAndroid() {
+  return /Android/i.test(navigator.userAgent);
 }
