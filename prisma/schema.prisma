@@ -4,10 +4,11 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  // Conexao usada em runtime: aponte para o endpoint COM pooler do Neon
-  // (host ...-pooler.neon.tech) usando pgbouncer=true&connection_limit=1.
+  // Banco real: Prisma Postgres (host db.prisma.io), conectado via Vercel.
+  // Em runtime o cliente usa DATABASE_URL.
   url       = env("DATABASE_URL")
-  // Conexao direta (sem pooler) usada por `prisma migrate`/`db push`.
+  // Usada por `prisma migrate`/`db push`. No Prisma Postgres pode ser a
+  // mesma connection string do DATABASE_URL.
   directUrl = env("DIRECT_URL")
 }
 
