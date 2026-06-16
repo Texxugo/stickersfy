@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Copy } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -13,17 +13,63 @@ type StickerActionsProps = {
 
 export function StickerActions({ imageUrl, width, height }: StickerActionsProps) {
   const [message, setMessage] = useState<string>("");
-  const [isCopying, setIsCopying] = useState(false);
+  const [prepared, setPrepared] = useState<{
+    sourceBlob: Blob | null;
+    sourceFormat: "png" | "svg";
+    pngBlob: Blob | null;
+  }>({
+    sourceBlob: null,
+    sourceFormat: "png",
+    pngBlob: null
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function prepareAssets() {
+      try {
+        const response = await fetch(imageUrl);
+        const sourceBlob = await response.blob();
+        const sourceFormat = detectSourceFormat(sourceBlob, imageUrl);
+        // Preparamos o PNG ANTES do clique: a copia para a area de
+        // transferencia precisa acontecer imediatamente apos o clique do
+        // usuario, senao o navegador bloqueia (perde o "gesto").
+        const pngBlob =
+          sourceFormat === "svg"
+            ? await convertSvgBlobToPngHighQuality(sourceBlob, width, height)
+            : sourceBlob;
+
+        if (!cancelled) {
+          setPrepared({
+            sourceBlob,
+            sourceFormat,
+            pngBlob
+          });
+        }
+      } catch {
+        if (!cancelled) {
+          setPrepared({
+            sourceBlob: null,
+            sourceFormat: "png",
+            pngBlob: null
+          });
+        }
+      }
+    }
+
+    void prepareAssets();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [imageUrl, width, height]);
 
   async function handleCopy() {
-    if (isCopying) return;
-    setIsCopying(true);
-    setMessage("");
-
     try {
-      const response = await fetch(imageUrl);
-      const sourceBlob = await response.blob();
-      const sourceFormat = detectSourceFormat(sourceBlob, imageUrl);
+      const sourceBlob = prepared.sourceBlob;
+      const sourceFormat = prepared.sourceFormat;
+
+      if (!sourceBlob) throw new Error("copy-asset-not-ready");
 
       if (sourceFormat === "svg" && !isAndroid()) {
         const copiedSvg = await tryWriteClipboardBlob(sourceBlob, "image/svg+xml");
@@ -33,12 +79,13 @@ export function StickerActions({ imageUrl, width, height }: StickerActionsProps)
         }
       }
 
-      // Conversao SVG->PNG so acontece aqui (no clique), nao ao abrir a pagina.
       const imageBlob =
-        sourceFormat === "svg"
+        prepared.pngBlob ??
+        (sourceFormat === "svg"
           ? await convertSvgBlobToPngHighQuality(sourceBlob, width, height)
-          : sourceBlob;
+          : sourceBlob);
 
+      if (!imageBlob) throw new Error("copy-asset-not-ready");
       await writeClipboardBlob(imageBlob, "image/png");
       setMessage(
         sourceFormat === "svg"
@@ -47,10 +94,10 @@ export function StickerActions({ imageUrl, width, height }: StickerActionsProps)
       );
     } catch {
       setMessage("Nao foi possivel copiar no seu navegador.");
-    } finally {
-      setIsCopying(false);
     }
   }
+
+  const isReady = prepared.sourceBlob !== null;
 
   return (
     <div className="space-y-3">
@@ -59,11 +106,11 @@ export function StickerActions({ imageUrl, width, height }: StickerActionsProps)
           type="button"
           size="lg"
           onClick={handleCopy}
-          disabled={isCopying}
+          disabled={!isReady}
           className="bg-[#f2c8c8] text-[#5f3535] hover:bg-[#e8b4b4] focus-visible:ring-[#f2c8c8]"
         >
           <Copy className="mr-2 h-4 w-4" />
-          {isCopying ? "Preparando..." : "Copiar Sticker"}
+          {isReady ? "Copiar Sticker" : "Preparando..."}
         </Button>
       </div>
       {message ? (
@@ -125,11 +172,10 @@ async function convertSvgBlobToPngHighQuality(blob: Blob, width: number, height:
     const baseHeight = Math.max(height || image.naturalHeight || 512, 128);
     const maxBase = Math.max(baseWidth, baseHeight);
     const qualityScale = Math.max(1, Math.ceil(1024 / maxBase));
-    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 3);
 
-    // Teto reduzido (2048) para evitar travar/derrubar a aba em celulares.
-    const canvasWidth = Math.min(baseWidth * qualityScale * pixelRatio, 2048);
-    const canvasHeight = Math.min(baseHeight * qualityScale * pixelRatio, 2048);
+    const canvasWidth = Math.min(baseWidth * qualityScale * pixelRatio, 4096);
+    const canvasHeight = Math.min(baseHeight * qualityScale * pixelRatio, 4096);
 
     const canvas = document.createElement("canvas");
     canvas.width = Math.floor(canvasWidth);
