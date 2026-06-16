@@ -29,7 +29,7 @@ export async function getAccessDecision(email: string): Promise<AccessDecision> 
     };
   }
 
-  if (isEarlyAccessEmail(normalizedEmail)) {
+  if (await isEarlyAccessEmail(normalizedEmail)) {
     return {
       allowed: true,
       reason: "early-access",

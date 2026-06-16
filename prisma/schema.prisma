@@ -184,3 +184,12 @@ model PhraseSuggestion {
 
   @@index([createdAt])
 }
+
+model EarlyAccessEmail {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}

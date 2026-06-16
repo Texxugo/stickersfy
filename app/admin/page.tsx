@@ -4,6 +4,11 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { isAdminEmail } from "@/lib/admin-emails";
+import {
+  addEarlyAccessEmail,
+  listEarlyAccessEmails,
+  removeEarlyAccessEmail
+} from "@/lib/early-access-emails";
 import { isPanelBypassEnabled } from "@/lib/panel-bypass";
 import { Navbar } from "@/components/navbar";
 import { AdminCreateStickerForm } from "@/components/admin-create-sticker-form";
@@ -52,6 +57,7 @@ export default async function AdminPage({
       ])
     : [[], []];
   const suggestions = dbConfigured ? await getPhraseSuggestions() : [];
+  const earlyAccessEntries = dbConfigured ? await listEarlyAccessEmails() : [];
 
   const categories = dbConfigured
     ? dynamicCategories.map((category) => category.name)
@@ -298,6 +304,35 @@ export default async function AdminPage({
     revalidatePath("/gallery");
   }
 
+  async function addEarlyAccess(formData: FormData) {
+    "use server";
+
+    await requireAdminSession();
+    assertDatabaseConfigured();
+
+    const email = String(formData.get("email") ?? "").trim();
+    const note = String(formData.get("note") ?? "").trim();
+    if (!email) throw new Error("Informe um e-mail.");
+
+    await addEarlyAccessEmail(email, note);
+
+    revalidatePath("/admin");
+  }
+
+  async function removeEarlyAccess(formData: FormData) {
+    "use server";
+
+    await requireAdminSession();
+    assertDatabaseConfigured();
+
+    const email = String(formData.get("email") ?? "").trim();
+    if (!email) throw new Error("E-mail nao informado.");
+
+    await removeEarlyAccessEmail(email);
+
+    revalidatePath("/admin");
+  }
+
   return (
     <div className="min-h-screen">
       <Navbar email={session.email} />
@@ -360,6 +395,93 @@ export default async function AdminPage({
               </div>
             ) : (
               <p className="text-sm text-muted">Nenhuma sugestao enviada ainda.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Acesso antecipado</CardTitle>
+            <CardDescription>
+              Libere e-mails de acesso (cortesia/teste) sem mexer em variaveis de ambiente nem
+              dar redeploy. O efeito e imediato. E-mails marcados como &quot;ambiente&quot; vem das
+              variaveis e so saem alterando a env.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <form action={addEarlyAccess} className="flex flex-col gap-2 sm:flex-row sm:items-end">
+              <label className="w-full space-y-2 sm:max-w-sm">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted">
+                  E-mail
+                </span>
+                <input
+                  name="email"
+                  type="email"
+                  required
+                  placeholder="cliente@exemplo.com"
+                  className="flex h-11 w-full rounded-xl border border-border bg-white/70 px-4 py-2 text-sm text-text shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                />
+              </label>
+              <label className="w-full space-y-2 sm:max-w-xs">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted">
+                  Nota (opcional)
+                </span>
+                <input
+                  name="note"
+                  type="text"
+                  placeholder="Ex.: parceria, suporte"
+                  className="flex h-11 w-full rounded-xl border border-border bg-white/70 px-4 py-2 text-sm text-text shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                />
+              </label>
+              <Button
+                type="submit"
+                className="bg-[#f2c8c8] text-[#5f3535] hover:bg-[#e8b4b4] focus-visible:ring-[#f2c8c8]"
+              >
+                Liberar acesso
+              </Button>
+            </form>
+
+            {earlyAccessEntries.length > 0 ? (
+              <div className="rounded-xl border border-border bg-white/40 p-2">
+                <div className="mb-2 px-1 text-xs text-muted">
+                  {earlyAccessEntries.length} e-mail(s) com acesso antecipado
+                </div>
+                <div className="max-h-96 space-y-2 overflow-y-auto pr-1">
+                  {earlyAccessEntries.map((entry) => (
+                    <div
+                      key={`${entry.source}-${entry.email}`}
+                      className="flex flex-col gap-2 rounded-xl border border-border bg-white/70 p-2 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-text">{entry.email}</p>
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                          <Badge>{entry.source === "env" ? "Ambiente (fixo)" : "Painel"}</Badge>
+                          {entry.note ? (
+                            <span className="text-xs text-muted">{entry.note}</span>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      {entry.source === "db" ? (
+                        <form action={removeEarlyAccess}>
+                          <input type="hidden" name="email" value={entry.email} />
+                          <Button
+                            type="submit"
+                            variant="secondary"
+                            className="border-red-300 text-red-700 hover:bg-red-50"
+                          >
+                            Remover
+                          </Button>
+                        </form>
+                      ) : (
+                        <span className="text-xs text-muted">via variavel de ambiente</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted">Nenhum e-mail de acesso antecipado cadastrado.</p>
             )}
           </CardContent>
         </Card>
