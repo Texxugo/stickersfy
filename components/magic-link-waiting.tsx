@@ -11,6 +11,9 @@ type BridgeStatus =
   | { state: "consumed" }
   | { state: "invalid" };
 
+const POLL_INTERVAL_MS = 5000;
+const MAX_POLL_DURATION_MS = 5 * 60 * 1000;
+
 export function MagicLinkWaiting() {
   const [state, setState] = useState<"pending" | "signing-in" | "expired" | "error">("pending");
   const signingInRef = useRef(false);
@@ -18,6 +21,14 @@ export function MagicLinkWaiting() {
   useEffect(() => {
     let canceled = false;
     let timer: ReturnType<typeof setInterval> | null = null;
+    const startedAt = Date.now();
+
+    function stopPolling() {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+    }
 
     async function attemptSignIn(code: string) {
       signingInRef.current = true;
@@ -55,6 +66,18 @@ export function MagicLinkWaiting() {
 
     async function poll() {
       if (signingInRef.current) return;
+
+      // Para de bater no banco depois do limite (aba esquecida aberta).
+      if (Date.now() - startedAt > MAX_POLL_DURATION_MS) {
+        stopPolling();
+        if (!canceled) setState("expired");
+        return;
+      }
+
+      // Nao consome recursos enquanto a aba esta em segundo plano.
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+        return;
+      }
 
       try {
         const response = await fetch("/api/auth/magic-bridge/status", {
@@ -96,11 +119,11 @@ export function MagicLinkWaiting() {
     }
 
     poll();
-    timer = setInterval(poll, 3000);
+    timer = setInterval(poll, POLL_INTERVAL_MS);
 
     return () => {
       canceled = true;
-      if (timer) clearInterval(timer);
+      stopPolling();
     };
   }, []);
 

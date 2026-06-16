@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { processKiwifyWebhook } from "@/lib/kiwify-webhook";
+import { getClientIp, rateLimit, retryAfterSeconds } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
+  const ip = getClientIp(request.headers);
+  const limited = rateLimit(`kiwify:${ip}`, 300, 60_000);
+  if (!limited.ok) {
+    return NextResponse.json(
+      { ok: false, error: "Too many requests" },
+      { status: 429, headers: { "Retry-After": String(retryAfterSeconds(limited.resetAt)) } }
+    );
+  }
+
   if (!isAuthorizedWebhookRequest(request)) {
     return NextResponse.json(
       {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Copy } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -13,60 +13,17 @@ type StickerActionsProps = {
 
 export function StickerActions({ imageUrl, width, height }: StickerActionsProps) {
   const [message, setMessage] = useState<string>("");
-  const [prepared, setPrepared] = useState<{
-    sourceBlob: Blob | null;
-    sourceFormat: "png" | "svg";
-    pngBlob: Blob | null;
-  }>({
-    sourceBlob: null,
-    sourceFormat: "png",
-    pngBlob: null
-  });
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function prepareAssets() {
-      try {
-        const response = await fetch(imageUrl);
-        const sourceBlob = await response.blob();
-        const sourceFormat = detectSourceFormat(sourceBlob, imageUrl);
-        const pngBlob =
-          sourceFormat === "svg"
-            ? await convertSvgBlobToPngHighQuality(sourceBlob, width, height)
-            : sourceBlob;
-
-        if (!cancelled) {
-          setPrepared({
-            sourceBlob,
-            sourceFormat,
-            pngBlob
-          });
-        }
-      } catch {
-        if (!cancelled) {
-          setPrepared({
-            sourceBlob: null,
-            sourceFormat: "png",
-            pngBlob: null
-          });
-        }
-      }
-    }
-
-    void prepareAssets();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [imageUrl, width, height]);
+  const [isCopying, setIsCopying] = useState(false);
 
   async function handleCopy() {
-    try {
-      const sourceBlob = prepared.sourceBlob;
-      const sourceFormat = prepared.sourceFormat;
+    if (isCopying) return;
+    setIsCopying(true);
+    setMessage("");
 
-      if (!sourceBlob) throw new Error("copy-asset-not-ready");
+    try {
+      const response = await fetch(imageUrl);
+      const sourceBlob = await response.blob();
+      const sourceFormat = detectSourceFormat(sourceBlob, imageUrl);
 
       if (sourceFormat === "svg" && !isAndroid()) {
         const copiedSvg = await tryWriteClipboardBlob(sourceBlob, "image/svg+xml");
@@ -76,13 +33,12 @@ export function StickerActions({ imageUrl, width, height }: StickerActionsProps)
         }
       }
 
+      // Conversao SVG->PNG so acontece aqui (no clique), nao ao abrir a pagina.
       const imageBlob =
-        prepared.pngBlob ??
-        (sourceFormat === "svg"
+        sourceFormat === "svg"
           ? await convertSvgBlobToPngHighQuality(sourceBlob, width, height)
-          : sourceBlob);
+          : sourceBlob;
 
-      if (!imageBlob) throw new Error("copy-asset-not-ready");
       await writeClipboardBlob(imageBlob, "image/png");
       setMessage(
         sourceFormat === "svg"
@@ -91,6 +47,8 @@ export function StickerActions({ imageUrl, width, height }: StickerActionsProps)
       );
     } catch {
       setMessage("Nao foi possivel copiar no seu navegador.");
+    } finally {
+      setIsCopying(false);
     }
   }
 
@@ -101,10 +59,11 @@ export function StickerActions({ imageUrl, width, height }: StickerActionsProps)
           type="button"
           size="lg"
           onClick={handleCopy}
+          disabled={isCopying}
           className="bg-[#f2c8c8] text-[#5f3535] hover:bg-[#e8b4b4] focus-visible:ring-[#f2c8c8]"
         >
           <Copy className="mr-2 h-4 w-4" />
-          Copiar Sticker
+          {isCopying ? "Preparando..." : "Copiar Sticker"}
         </Button>
       </div>
       {message ? (
@@ -166,10 +125,11 @@ async function convertSvgBlobToPngHighQuality(blob: Blob, width: number, height:
     const baseHeight = Math.max(height || image.naturalHeight || 512, 128);
     const maxBase = Math.max(baseWidth, baseHeight);
     const qualityScale = Math.max(1, Math.ceil(1024 / maxBase));
-    const pixelRatio = Math.min(window.devicePixelRatio || 1, 3);
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
 
-    const canvasWidth = Math.min(baseWidth * qualityScale * pixelRatio, 4096);
-    const canvasHeight = Math.min(baseHeight * qualityScale * pixelRatio, 4096);
+    // Teto reduzido (2048) para evitar travar/derrubar a aba em celulares.
+    const canvasWidth = Math.min(baseWidth * qualityScale * pixelRatio, 2048);
+    const canvasHeight = Math.min(baseHeight * qualityScale * pixelRatio, 2048);
 
     const canvas = document.createElement("canvas");
     canvas.width = Math.floor(canvasWidth);

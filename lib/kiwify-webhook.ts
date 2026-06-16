@@ -1,11 +1,13 @@
 import { createHash } from "node:crypto";
 
-import { AccessStatus, BillingStatus, WebhookProcessingStatus } from "@prisma/client";
+import { AccessStatus, BillingStatus, WebhookProcessingStatus, type Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { getGraceUntil } from "@/lib/access-control";
 
 type KiwifyAction = "APPROVE" | "GRACE" | "BLOCK" | "IGNORE";
+
+type TxClient = Prisma.TransactionClient;
 
 export type ParsedKiwifyPayload = {
   eventType: string;
@@ -14,6 +16,7 @@ export type ParsedKiwifyPayload = {
   customerId: string | null;
   productId: string | null;
   subscriptionId: string | null;
+  eventAt: Date | null;
   action: KiwifyAction;
 };
 
@@ -78,6 +81,17 @@ export function parseKiwifyPayload(payload: unknown): ParsedKiwifyPayload {
     "plan.subscription_id"
   ]);
 
+  const eventAt = getDateByPaths(payload, [
+    "created_at",
+    "updated_at",
+    "event_date",
+    "webhook_event_date",
+    "data.created_at",
+    "data.updated_at",
+    "order.created_at",
+    "order.updated_at"
+  ]);
+
   const action = classifyKiwifyAction(eventType, status);
 
   return {
@@ -87,6 +101,7 @@ export function parseKiwifyPayload(payload: unknown): ParsedKiwifyPayload {
     customerId,
     productId,
     subscriptionId,
+    eventAt,
     action
   };
 }
@@ -130,17 +145,22 @@ export async function processKiwifyWebhook(payload: unknown, rawBody: string) {
   }
 
   try {
-    await applyKiwifyAction(parsed);
+    // Aplica a acao e grava o registro PROCESSED na MESMA transacao:
+    // se algo falhar, tudo e revertido e o dedupeKey permanece livre
+    // para um reenvio legitimo da Kiwify reprocessar.
+    await prisma.$transaction(async (tx) => {
+      await applyKiwifyAction(parsed, tx);
 
-    await prisma.kiwifyWebhookDelivery.create({
-      data: {
-        dedupeKey,
-        eventType: parsed.eventType,
-        email: parsed.email,
-        payload: payload as object,
-        processingStatus: WebhookProcessingStatus.PROCESSED,
-        processedAt: new Date()
-      }
+      await tx.kiwifyWebhookDelivery.create({
+        data: {
+          dedupeKey,
+          eventType: parsed.eventType,
+          email: parsed.email,
+          payload: payload as object,
+          processingStatus: WebhookProcessingStatus.PROCESSED,
+          processedAt: new Date()
+        }
+      });
     });
 
     return {
@@ -149,17 +169,21 @@ export async function processKiwifyWebhook(payload: unknown, rawBody: string) {
       ignoredReason: null
     };
   } catch (error) {
-    await prisma.kiwifyWebhookDelivery.create({
-      data: {
-        dedupeKey,
-        eventType: parsed.eventType,
-        email: parsed.email,
-        payload: payload as object,
-        processingStatus: WebhookProcessingStatus.FAILED,
-        errorMessage: error instanceof Error ? error.message : "Erro desconhecido",
-        processedAt: new Date()
-      }
-    });
+    // Registra a falha com uma chave unica derivada, sem ocupar o dedupeKey
+    // real (assim o reenvio nao e tratado como duplicado e pode reprocessar).
+    await prisma.kiwifyWebhookDelivery
+      .create({
+        data: {
+          dedupeKey: `${dedupeKey}:failed:${Date.now()}`,
+          eventType: parsed.eventType,
+          email: parsed.email,
+          payload: payload as object,
+          processingStatus: WebhookProcessingStatus.FAILED,
+          errorMessage: error instanceof Error ? error.message : "Erro desconhecido",
+          processedAt: new Date()
+        }
+      })
+      .catch(() => undefined);
     throw error;
   }
 }
@@ -235,15 +259,30 @@ function classifyKiwifyAction(eventType: string, status: string | null): KiwifyA
   return "IGNORE";
 }
 
-async function applyKiwifyAction(parsed: ParsedKiwifyPayload) {
+async function applyKiwifyAction(parsed: ParsedKiwifyPayload, tx: TxClient) {
   if (!parsed.email || parsed.action === "IGNORE") return;
 
   const now = new Date();
+  // Momento do evento na origem (Kiwify). Usado para ordenar eventos que
+  // chegam fora de ordem; cai para `now` se o payload nao trouxer data.
+  const eventAt = parsed.eventAt ?? now;
+
+  const existing = await tx.customerAccess.findUnique({
+    where: { email: parsed.email },
+    select: { lastEventAt: true }
+  });
+
+  // Guarda de ordenacao: ignora eventos mais antigos que o ultimo aplicado
+  // para nao reverter o estado (ex.: um "approved" atrasado sobrescrevendo
+  // um "refund" mais recente).
+  if (existing?.lastEventAt && eventAt < existing.lastEventAt) {
+    return;
+  }
 
   if (parsed.action === "APPROVE") {
-    await ensureUserProvisioned(parsed.email);
+    await ensureUserProvisioned(parsed.email, tx);
 
-    await prisma.customerAccess.upsert({
+    await tx.customerAccess.upsert({
       where: { email: parsed.email },
       update: {
         accessStatus: AccessStatus.ACTIVE,
@@ -253,7 +292,7 @@ async function applyKiwifyAction(parsed: ParsedKiwifyPayload) {
         kiwifyProductId: parsed.productId ?? undefined,
         kiwifySubscriptionId: parsed.subscriptionId ?? undefined,
         lastEventType: parsed.eventType,
-        lastEventAt: now,
+        lastEventAt: eventAt,
         lastApprovedAt: now
       },
       create: {
@@ -265,7 +304,7 @@ async function applyKiwifyAction(parsed: ParsedKiwifyPayload) {
         kiwifyProductId: parsed.productId ?? undefined,
         kiwifySubscriptionId: parsed.subscriptionId ?? undefined,
         lastEventType: parsed.eventType,
-        lastEventAt: now,
+        lastEventAt: eventAt,
         lastApprovedAt: now
       }
     });
@@ -274,14 +313,14 @@ async function applyKiwifyAction(parsed: ParsedKiwifyPayload) {
 
   if (parsed.action === "GRACE") {
     const graceUntil = getGraceUntil(now, 7);
-    await prisma.customerAccess.upsert({
+    await tx.customerAccess.upsert({
       where: { email: parsed.email },
       update: {
         accessStatus: AccessStatus.GRACE,
         billingStatus: BillingStatus.PAYMENT_FAILED,
         graceUntil,
         lastEventType: parsed.eventType,
-        lastEventAt: now,
+        lastEventAt: eventAt,
         lastPaymentFailedAt: now
       },
       create: {
@@ -290,21 +329,21 @@ async function applyKiwifyAction(parsed: ParsedKiwifyPayload) {
         billingStatus: BillingStatus.PAYMENT_FAILED,
         graceUntil,
         lastEventType: parsed.eventType,
-        lastEventAt: now,
+        lastEventAt: eventAt,
         lastPaymentFailedAt: now
       }
     });
     return;
   }
 
-  await prisma.customerAccess.upsert({
+  await tx.customerAccess.upsert({
     where: { email: parsed.email },
     update: {
       accessStatus: AccessStatus.BLOCKED,
       billingStatus: mapBlockBillingStatus(parsed.eventType),
       graceUntil: null,
       lastEventType: parsed.eventType,
-      lastEventAt: now,
+      lastEventAt: eventAt,
       lastBlockedAt: now
     },
     create: {
@@ -313,14 +352,14 @@ async function applyKiwifyAction(parsed: ParsedKiwifyPayload) {
       billingStatus: mapBlockBillingStatus(parsed.eventType),
       graceUntil: null,
       lastEventType: parsed.eventType,
-      lastEventAt: now,
+      lastEventAt: eventAt,
       lastBlockedAt: now
     }
   });
 }
 
-async function ensureUserProvisioned(email: string) {
-  await prisma.user.upsert({
+async function ensureUserProvisioned(email: string, tx: TxClient) {
+  await tx.user.upsert({
     where: { email },
     update: {
       email
@@ -345,6 +384,17 @@ function getStringByPaths(payload: unknown, paths: string[]) {
   for (const path of paths) {
     const value = getValueByPath(payload, path);
     if (typeof value === "string" && value.trim()) return value;
+  }
+  return null;
+}
+
+function getDateByPaths(payload: unknown, paths: string[]): Date | null {
+  for (const path of paths) {
+    const value = getValueByPath(payload, path);
+    if (typeof value === "string" || typeof value === "number") {
+      const date = new Date(value);
+      if (!Number.isNaN(date.getTime())) return date;
+    }
   }
   return null;
 }

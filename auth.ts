@@ -11,20 +11,33 @@ const provider = Resend({
   apiKey: process.env.RESEND_API_KEY,
   from: process.env.RESEND_FROM ?? "noreply@stickers.local",
   async sendVerificationRequest({ identifier: to, url, provider }) {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${provider.apiKey}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        from: provider.from,
-        to,
-        subject: "Seu acesso à plataforma Stickersfy",
-        html: buildVerificationEmailHtml(url),
-        text: buildVerificationEmailText(url)
-      })
-    });
+    let res: Response;
+    try {
+      res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${provider.apiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          from: provider.from,
+          to,
+          subject: "Seu acesso à plataforma Stickersfy",
+          html: buildVerificationEmailHtml(url),
+          text: buildVerificationEmailText(url)
+        }),
+        // Evita que a função serverless fique presa se o Resend nao responder.
+        signal: AbortSignal.timeout(10000)
+      });
+    } catch (error) {
+      const reason =
+        error instanceof Error && error.name === "TimeoutError"
+          ? "timeout ao contatar o Resend"
+          : error instanceof Error
+            ? error.message
+            : "erro desconhecido";
+      throw new Error("Resend error: " + reason);
+    }
 
     if (!res.ok) {
       throw new Error("Resend error: " + JSON.stringify(await res.json()));

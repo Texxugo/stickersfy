@@ -31,9 +31,16 @@ export async function GET(request: NextRequest) {
       return new NextResponse("Host not allowed", { status: 403 });
     }
 
-    const upstream = await fetch(url.toString(), {
-      cache: "no-store"
-    });
+    let upstream: Response;
+    try {
+      upstream = await fetch(url.toString(), {
+        cache: "no-store",
+        // Nao deixa a requisicao pendurada se o Cloudinary estiver lento.
+        signal: AbortSignal.timeout(10000)
+      });
+    } catch {
+      return new NextResponse("Source image timeout", { status: 504 });
+    }
 
     if (!upstream.ok) {
       return new NextResponse("Failed to fetch source image", { status: 502 });

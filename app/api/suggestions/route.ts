@@ -3,11 +3,21 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { isPanelBypassEnabled } from "@/lib/panel-bypass";
+import { getClientIp, rateLimit, retryAfterSeconds } from "@/lib/rate-limit";
 
 const MAX_NAME_LENGTH = 80;
 const MAX_MESSAGE_LENGTH = 500;
 
 export async function POST(request: Request) {
+  const ip = getClientIp(request.headers);
+  const limited = rateLimit(`suggest:${ip}`, 10, 60_000);
+  if (!limited.ok) {
+    return NextResponse.json(
+      { error: "Muitas sugestoes em pouco tempo. Tente novamente em instantes." },
+      { status: 429, headers: { "Retry-After": String(retryAfterSeconds(limited.resetAt)) } }
+    );
+  }
+
   if (!process.env.DATABASE_URL) {
     return NextResponse.json(
       { error: "Banco de dados nao configurado." },

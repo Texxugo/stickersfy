@@ -9,12 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { getAccessDecision } from "@/lib/access-control";
 import { isPanelBypassEnabled } from "@/lib/panel-bypass";
-import { getCategories, getPublishedStickers } from "@/lib/sticker-data";
+import { GALLERY_PAGE_SIZE, getCategories, getPublishedStickers } from "@/lib/sticker-data";
 
 export default async function GalleryPage({
   searchParams
 }: {
-  searchParams: Promise<{ q?: string; category?: string }>;
+  searchParams: Promise<{ q?: string; category?: string; page?: string }>;
 }) {
   const bypassEnabled = isPanelBypassEnabled();
   const session = await auth();
@@ -36,11 +36,20 @@ export default async function GalleryPage({
   const params = await searchParams;
   const q = params.q?.trim() ?? "";
   const category = params.category?.trim() ?? "";
+  const parsedPage = Number.parseInt(params.page ?? "1", 10);
+  const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+  const limit = page * GALLERY_PAGE_SIZE;
 
-  const [stickers, categories] = await Promise.all([
-    getPublishedStickers(q, category),
+  const [{ items: stickers, hasMore }, categories] = await Promise.all([
+    getPublishedStickers(q, category, limit),
     getCategories()
   ]);
+
+  const nextPageParams = new URLSearchParams();
+  if (q) nextPageParams.set("q", q);
+  if (category) nextPageParams.set("category", category);
+  nextPageParams.set("page", String(page + 1));
+  const loadMoreHref = `/gallery?${nextPageParams.toString()}`;
 
   return (
     <div className="min-h-screen">
@@ -97,6 +106,17 @@ export default async function GalleryPage({
           <p className="rounded-xl border border-border bg-card/70 p-4 text-sm text-muted">
             Nenhum sticker encontrado para esse filtro.
           </p>
+        ) : null}
+
+        {hasMore ? (
+          <div className="flex justify-center pt-2">
+            <a
+              href={loadMoreHref}
+              className="inline-flex h-11 items-center rounded-xl border border-[#f2c8c8] bg-white px-6 text-sm font-semibold text-[#5f3535] shadow-sm transition hover:bg-[#fdf1f1]"
+            >
+              Carregar mais
+            </a>
+          </div>
         ) : null}
       </main>
     </div>

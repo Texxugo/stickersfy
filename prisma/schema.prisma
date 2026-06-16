@@ -3,8 +3,12 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url = env("DATABASE_URL")
+  provider  = "postgresql"
+  // Conexao usada em runtime: aponte para o endpoint COM pooler do Neon
+  // (host ...-pooler.neon.tech) usando pgbouncer=true&connection_limit=1.
+  url       = env("DATABASE_URL")
+  // Conexao direta (sem pooler) usada por `prisma migrate`/`db push`.
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -106,6 +110,9 @@ model Sticker {
   categoryId String
   category   Category         @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   variants   StickerVariant[]
+
+  @@index([published, createdAt])
+  @@index([categoryId])
 }
 
 model StickerVariant {

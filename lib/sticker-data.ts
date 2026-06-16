@@ -88,7 +88,20 @@ function shouldUseDatabase() {
   return Boolean(process.env.DATABASE_URL);
 }
 
-export async function getPublishedStickers(query?: string, category?: string) {
+export const GALLERY_PAGE_SIZE = 48;
+
+export type PublishedStickersResult = {
+  items: StickerItem[];
+  hasMore: boolean;
+};
+
+export async function getPublishedStickers(
+  query?: string,
+  category?: string,
+  limit: number = GALLERY_PAGE_SIZE
+): Promise<PublishedStickersResult> {
+  const take = Math.max(1, limit);
+
   if (shouldUseDatabase()) {
     try {
       const rows = await prisma.sticker.findMany({
@@ -122,16 +135,20 @@ export async function getPublishedStickers(query?: string, category?: string) {
         },
         orderBy: {
           createdAt: "desc"
-        }
+        },
+        // Busca um item a mais para saber se ha proxima pagina.
+        take: take + 1
       });
 
-      return rows.map(mapStickerRow);
+      const hasMore = rows.length > take;
+      const visible = hasMore ? rows.slice(0, take) : rows;
+      return { items: visible.map(mapStickerRow), hasMore };
     } catch {
-      return fallbackFilter(query, category);
+      return fallbackFilter(query, category, take);
     }
   }
 
-  return fallbackFilter(query, category);
+  return fallbackFilter(query, category, take);
 }
 
 export async function getStickerBySlug(slug: string) {
@@ -187,15 +204,24 @@ export async function getCategories() {
   return ["Bom dia", "Boa tarde", "Boa noite"];
 }
 
-function fallbackFilter(query?: string, category?: string) {
+function fallbackFilter(
+  query?: string,
+  category?: string,
+  take: number = GALLERY_PAGE_SIZE
+): PublishedStickersResult {
   const normalizedQuery = query?.trim().toLowerCase();
-  return fallbackStickers.filter((sticker) => {
+  const filtered = fallbackStickers.filter((sticker) => {
     const byCategory = category ? sticker.category === category : true;
     const byQuery = normalizedQuery
       ? `${sticker.title} ${sticker.phrase}`.toLowerCase().includes(normalizedQuery)
       : true;
     return byCategory && byQuery;
   });
+
+  return {
+    items: filtered.slice(0, take),
+    hasMore: filtered.length > take
+  };
 }
 
 function detectStickerFormat(imageUrl: string): "png" | "svg" {
