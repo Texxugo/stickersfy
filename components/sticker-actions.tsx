@@ -71,14 +71,10 @@ export function StickerActions({ imageUrl, width, height }: StickerActionsProps)
 
       if (!sourceBlob) throw new Error("copy-asset-not-ready");
 
-      if (sourceFormat === "svg" && !isAndroid()) {
-        const copiedSvg = await tryWriteClipboardBlob(sourceBlob, "image/svg+xml");
-        if (copiedSvg) {
-          setMessage("Sticker SVG copiado para a area de transferencia.");
-          return;
-        }
-      }
-
+      // Sempre copiamos como PNG: e o unico formato de imagem com suporte amplo
+      // na area de transferencia (Chrome no Android, Safari no iPhone) e o que
+      // cola de forma confiavel na caixa de texto dos Stories do Instagram.
+      // SVG na area de transferencia e recusado por varios navegadores.
       const imageBlob =
         prepared.pngBlob ??
         (sourceFormat === "svg"
@@ -87,11 +83,7 @@ export function StickerActions({ imageUrl, width, height }: StickerActionsProps)
 
       if (!imageBlob) throw new Error("copy-asset-not-ready");
       await writeClipboardBlob(imageBlob, "image/png");
-      setMessage(
-        sourceFormat === "svg"
-          ? "Sticker copiado como PNG em alta resolucao."
-          : "Sticker copiado como imagem."
-      );
+      setMessage("Sticker copiado como imagem (PNG).");
     } catch {
       setMessage("Nao foi possivel copiar no seu navegador.");
     }
@@ -152,15 +144,6 @@ async function writeClipboardBlob(blob: Blob, mime: string) {
   ]);
 }
 
-async function tryWriteClipboardBlob(blob: Blob, mime: string) {
-  try {
-    await writeClipboardBlob(blob, mime);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 async function convertSvgBlobToPngHighQuality(blob: Blob, width: number, height: number) {
   const svgText = await blob.text();
   const svgBlob = new Blob([svgText], { type: "image/svg+xml;charset=utf-8" });
@@ -212,8 +195,4 @@ function canvasToBlob(canvas: HTMLCanvasElement, type: string) {
       resolve(blob);
     }, type);
   });
-}
-
-function isAndroid() {
-  return /Android/i.test(navigator.userAgent);
 }

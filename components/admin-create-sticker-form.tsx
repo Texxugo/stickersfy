@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 
 import { Button } from "@/components/ui/button";
@@ -23,18 +24,84 @@ function SubmitButton() {
   );
 }
 
+function loadImage(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("image-load-failed"));
+    image.src = src;
+  });
+}
+
 export function AdminCreateStickerForm({
   categories,
   action
 }: AdminCreateStickerFormProps) {
   const hasCategories = categories.length > 0;
 
+  const [imageUrl, setImageUrl] = useState("");
+  const [width, setWidth] = useState("512");
+  const [height, setHeight] = useState("512");
+  const [sizeKb, setSizeKb] = useState("120");
+  const [previewOk, setPreviewOk] = useState(false);
+  const [detecting, setDetecting] = useState(false);
+  const [detected, setDetected] = useState(false);
+
+  // Detecta dimensoes e tamanho automaticamente quando a URL muda (best-effort).
+  useEffect(() => {
+    const trimmed = imageUrl.trim();
+    setPreviewOk(false);
+    setDetected(false);
+
+    if (!/^https?:\/\//i.test(trimmed)) {
+      setDetecting(false);
+      return;
+    }
+
+    let cancelled = false;
+    setDetecting(true);
+
+    const timer = setTimeout(async () => {
+      // Dimensoes via <img> (nao depende de CORS).
+      try {
+        const image = await loadImage(trimmed);
+        if (!cancelled) {
+          if (image.naturalWidth) setWidth(String(image.naturalWidth));
+          if (image.naturalHeight) setHeight(String(image.naturalHeight));
+          setPreviewOk(true);
+          setDetected(true);
+        }
+      } catch {
+        // URL nao carregou como imagem; segue com digitacao manual.
+      }
+
+      // Tamanho via fetch (Cloudinary permite). Best-effort.
+      try {
+        const response = await fetch(trimmed);
+        const blob = await response.blob();
+        if (!cancelled && blob.size > 0) {
+          setSizeKb(String(Math.max(1, Math.round(blob.size / 1024))));
+          setDetected(true);
+        }
+      } catch {
+        // Mantem o valor atual de tamanho.
+      }
+
+      if (!cancelled) setDetecting(false);
+    }, 500);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [imageUrl]);
+
   return (
     <form action={action} className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="space-y-2">
           <span className="text-xs font-semibold uppercase tracking-wide text-muted">
-            TÃ­tulo
+            Título
           </span>
           <Input name="title" required placeholder="Bom dia brilho" />
         </label>
@@ -49,15 +116,40 @@ export function AdminCreateStickerForm({
 
       <label className="space-y-2">
         <span className="text-xs font-semibold uppercase tracking-wide text-muted">
-          URL da imagem PNG ou SVG (Cloudinary)
+          URL da imagem (PNG recomendado, ou SVG) — Cloudinary
         </span>
         <Input
           name="imageUrl"
           type="url"
           required
-          placeholder="https://res.cloudinary.com/.../sticker.png ou .svg"
+          value={imageUrl}
+          onChange={(event) => setImageUrl(event.target.value)}
+          placeholder="https://res.cloudinary.com/.../sticker.png"
         />
+        <span className="block text-[11px] text-muted">
+          {detecting
+            ? "Detectando dimensões e tamanho..."
+            : detected
+              ? "Dimensões e tamanho preenchidos automaticamente (você pode ajustar)."
+              : "Cole a URL para preencher dimensões e tamanho automaticamente. PNG mantém a máxima qualidade na cópia."}
+        </span>
       </label>
+
+      {previewOk ? (
+        <div className="flex items-center gap-3 rounded-xl border border-border bg-white/60 p-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={imageUrl.trim()}
+            alt="Pré-visualização do sticker"
+            loading="lazy"
+            decoding="async"
+            className="h-16 w-16 rounded-lg bg-accentSoft p-1 object-contain"
+          />
+          <span className="text-xs text-muted">
+            Pré-visualização — {width} x {height}px, ~{sizeKb}KB
+          </span>
+        </div>
+      ) : null}
 
       <div className="grid gap-3 sm:grid-cols-4">
         <label className="space-y-2 sm:col-span-2">
@@ -86,14 +178,28 @@ export function AdminCreateStickerForm({
           <span className="text-xs font-semibold uppercase tracking-wide text-muted">
             Largura
           </span>
-          <Input name="width" type="number" min={128} defaultValue={128} required />
+          <Input
+            name="width"
+            type="number"
+            min={128}
+            required
+            value={width}
+            onChange={(event) => setWidth(event.target.value)}
+          />
         </label>
 
         <label className="space-y-2">
           <span className="text-xs font-semibold uppercase tracking-wide text-muted">
             Altura
           </span>
-          <Input name="height" type="number" min={128} defaultValue={128} required />
+          <Input
+            name="height"
+            type="number"
+            min={128}
+            required
+            value={height}
+            onChange={(event) => setHeight(event.target.value)}
+          />
         </label>
       </div>
 
@@ -102,7 +208,14 @@ export function AdminCreateStickerForm({
           <span className="text-xs font-semibold uppercase tracking-wide text-muted">
             Tamanho KB
           </span>
-          <Input name="sizeKb" type="number" min={1} max={1024} defaultValue={120} required />
+          <Input
+            name="sizeKb"
+            type="number"
+            min={1}
+            required
+            value={sizeKb}
+            onChange={(event) => setSizeKb(event.target.value)}
+          />
         </label>
         {hasCategories ? (
           <SubmitButton />

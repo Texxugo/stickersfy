@@ -97,7 +97,7 @@ export default async function AdminPage({
       throw new Error("Dimensao minima deve ser 128x128.");
     }
 
-    if (sizeKb < 1 || sizeKb > 1024) {
+    if (sizeKb < 1 || sizeKb > 51200) {
       throw new Error("Tamanho em KB invalido.");
     }
 
@@ -632,6 +632,8 @@ export default async function AdminPage({
                         <img
                           src={sticker.imageUrl}
                           alt={sticker.title}
+                          loading="lazy"
+                          decoding="async"
                           className="h-12 w-12 rounded-lg bg-accentSoft p-1 object-contain"
                         />
                         <div>
